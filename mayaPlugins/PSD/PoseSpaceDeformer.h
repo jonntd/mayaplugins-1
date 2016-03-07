@@ -1,4 +1,4 @@
-#ifndef POSESPACEDEFORMER_H
+#ifndef POSESPACEDEFORMER_H+
 #define POSESPACEDEFORMER_H
 
 #include <maya/MPxDeformerNode.h>
@@ -28,7 +28,19 @@ private:
 
     static MObject          aDebug;
 
+    static MObject          aJoint;
+    static MObject          aJointRotation;
+    static MObject          aJointMatrix;
 
+    static MObject          aPose;
+    static MObject          aPoseName;
+    static MObject          aPoseEnvelope;
+    static MObject          aPoseJointRotations;
+    static MObject          aPoseComponents;
+    static MObject          aPoseDelta;
+
+    static MObject          aSkinClusterWeightList;
+    static MObject          aSkinClusterWeights;
 };
 
 #endif
