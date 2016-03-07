@@ -1,47 +1,22 @@
-#include <maya/MFnPlugin.h>
-#include <maya/MGlobal.h>
-#include <maya/MStatus.h>
 
-#include "PSD/PoseSpaceDeformer.h"
-#include "Relax/RelaxDeformer.h"
-
-
-MStatus initializePlugin( MObject obj )
+namespace PluginIDs
 {
-    MStatus result;
-    MFnPlugin plugin( obj, "YOUR COMPANY", "1.0", "Any" );
+    enum PluginIDs
+    {
+        PoseSpaceDeformer     = 0x8104D,
+        RelaxDeformer         = 0x34567,
+    };
+};
 
-    result = plugin.registerNode(
-                      PoseSpaceDeformer::name, 
-                      PoseSpaceDeformer::id, 
-                      PoseSpaceDeformer::creator, 
-                      PoseSpaceDeformer::initialize);
-    if (!result)
-        result.perror("Register PoseSpaceDeformer node failed.");
 
-    result = plugin.registerNode(
-                      RelaxDeformer::name, 
-                      RelaxDeformer::id, 
-                      RelaxDeformer::creator, 
-                      RelaxDeformer::initialize);
-    if (!result)
-        result.perror("Register RelaxDeformer node failed.");
+#define MCheckStatus(status,message)    \
+    if( MStatus::kSuccess != status ) { \
+        cerr << message << "\n";        \
+        return status;                  \
+    }
 
-    return result;
-}
 
-MStatus uninitializePlugin( MObject obj)
-{
-    MStatus result;
-    MFnPlugin plugin( obj );
-
-    result = plugin.deregisterNode( PoseSpaceDeformer::id );
-    if (!result)
-        result.perror("Deregister PoseSpaceDeformer node failed.");
-
-    result = plugin.deregisterNode( RelaxDeformer::id );
-    if (!result)
-        result.perror("Deregister RelaxDeformer node failed.");
-
-    return result;
-}
+#define MPrint(message)                                     \
+    MString _msg = MString(__FUNCTION__) + ": " + message;  \
+    MGlobal::displayInfo(_msg);                             \
+    std::cerr << _msg.asChar() << "\n";

@@ -1,7 +1,9 @@
 #include <maya/MFnPlugin.h>
 #include <maya/MGlobal.h>
 #include <maya/MStatus.h>
+#include <maya/MPxNode.h>
 
+#include "utils.h"
 #include "PSD/PoseSpaceDeformer.h"
 #include "Relax/RelaxDeformer.h"
 
@@ -11,17 +13,21 @@ MStatus initializePlugin( MObject obj )
     MStatus result;
     MFnPlugin plugin( obj, "YOUR COMPANY", "1.0", "Any" );
 
-    result = plugin.registerNode( "PoseSpaceDeformer", 
+    result = plugin.registerNode(
+                      PoseSpaceDeformer::name, 
                       PoseSpaceDeformer::id, 
                       PoseSpaceDeformer::creator, 
-                      PoseSpaceDeformer::initialize);
+                      PoseSpaceDeformer::initialize,
+                      MPxNode::kDeformerNode);
     if (!result)
         result.perror("Register PoseSpaceDeformer node failed.");
 
-    result = plugin.registerNode( "RelaxDeformer", 
+    result = plugin.registerNode(
+                      RelaxDeformer::name, 
                       RelaxDeformer::id, 
                       RelaxDeformer::creator, 
-                      RelaxDeformer::initialize);
+                      RelaxDeformer::initialize,
+                      MPxNode::kDeformerNode);
     if (!result)
         result.perror("Register RelaxDeformer node failed.");
 

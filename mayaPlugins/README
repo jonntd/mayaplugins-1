@@ -1,1 +1,24 @@
-# mayaplugins
+
+Building plugins:
+
+    In Makefile
+        Change MAYA_LOCATION
+        Change INSTALL_LOCATION
+        Change PLUGIN_NAME
+
+    Get plugin ids
+        Get Maya plugin ids from Autodesk and set it in utils.h
+
+    Run make in command prompt
+        This should produce plugin.so
+
+
+In Maya:scpriptEditor:python:
+
+    cmds.file(new=1, f=1)
+    cmds.unloadPlugin("plugin")
+
+    cmds.loadPlugin("mayaPlugins/*.so")
+
+    psd = cmds.deformer( type='PoseSpaceDeformer' )
+    relax= cmds.deformer( type='RelaxDeformer' )
