@@ -20,5 +20,12 @@ In Maya:scpriptEditor:python:
 
     cmds.loadPlugin("mayaPlugins/*.so")
 
-    psd = cmds.deformer( type='PoseSpaceDeformer' )
-    relax= cmds.deformer( type='RelaxDeformer' )
+    cmds.select(<mesh with skinCluster>)
+    psdNode = cmds.poseSpaceCommand(create='poseDeformerNewName')
+
+    cmds.select(<mesh with skinCluster>)
+    dupMesh = cmds.duplicate()
+    <edit dupMesh vertices to set it up as pose mesh>
+    cmds.select(dupMesh)
+
+    poseIndex = cmds.poseSpaceCommand(addPose=psdNode)

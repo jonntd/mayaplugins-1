@@ -7,10 +7,11 @@
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnTypedAttribute.h>
+#include <maya/MFnMatrixAttribute.h>
 
 
 MTypeId PoseSpaceDeformer::id( PluginIDs::PoseSpaceDeformer );
-const char * PoseSpaceDeformer::name( "PoseSpaceDeformer" );
+const char * PoseSpaceDeformer::name( PluginNames::PoseSpaceDeformer );
 
 MObject PoseSpaceDeformer::aDebug;
 
@@ -46,8 +47,8 @@ MStatus PoseSpaceDeformer::initialize()
     aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean);
     addAttribute(aDebug);
 
-    aJointRotation = nAttr("jointRotation", "jr", MFnNumericaData::k3Double);
-    aJointMatrix = mAttr("jointMatrix", "jm");
+    aJointRotation = nAttr.create("jointRotation", "jr", MFnNumericData::k3Double);
+    aJointMatrix = mAttr.create("jointMatrix", "jm");
 
     aJoint = cAttr.create("joint", "j");
     cAttr.setArray(true);
@@ -55,12 +56,12 @@ MStatus PoseSpaceDeformer::initialize()
     cAttr.addChild(aJointMatrix);
     addAttribute(aJoint);
 
-    aPoseName = tAttr("poseName", "pn", MFnData::kString);
-    aPoseEnvelope = nAttr("poseEnvelope", "pe", MFnNumericData::kFloat);
-    aPoseJointRotations = nAttr("poseJointRotations", "pjr", MFnNumericData::k3Double);
+    aPoseName = tAttr.create("poseName", "pn", MFnData::kString);
+    aPoseEnvelope = nAttr.create("poseEnvelope", "pe", MFnNumericData::kFloat);
+    aPoseJointRotations = nAttr.create("poseJointRotations", "pjr", MFnNumericData::k3Double);
     nAttr.setArray(true);
-    aPoseComponents = tAttr("poseComponents", "pc", MFnData::kComponentList);
-    aPoseDelta = tAttr("poseDelta", "pd", MFnData::kPointArray);
+    aPoseComponents = tAttr.create("poseComponents", "pc", MFnData::kIntArray);
+    aPoseDelta = tAttr.create("poseDelta", "pd", MFnData::kPointArray);
 
     aPose = cAttr.create("pose", "p");
     cAttr.setArray(true);

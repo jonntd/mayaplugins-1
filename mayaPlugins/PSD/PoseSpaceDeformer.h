@@ -1,4 +1,4 @@
-#ifndef POSESPACEDEFORMER_H+
+#ifndef POSESPACEDEFORMER_H
 #define POSESPACEDEFORMER_H
 
 #include <maya/MPxDeformerNode.h>
@@ -24,8 +24,7 @@ public:
     static  const char*     name;
 
 
-private:
-
+public:
     static MObject          aDebug;
 
     static MObject          aJoint;
@@ -44,4 +43,3 @@ private:
 };
 
 #endif
-

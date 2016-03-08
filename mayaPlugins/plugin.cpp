@@ -4,6 +4,7 @@
 #include <maya/MPxNode.h>
 
 #include "utils.h"
+#include "PSD/PoseSpaceCommand.h"
 #include "PSD/PoseSpaceDeformer.h"
 #include "Relax/RelaxDeformer.h"
 
@@ -13,6 +14,13 @@ MStatus initializePlugin( MObject obj )
     MStatus result;
     MFnPlugin plugin( obj, "YOUR COMPANY", "1.0", "Any" );
 
+    result = plugin.registerCommand( 
+                      PoseSpaceCommand::name,
+                      PoseSpaceCommand::creator,
+                      PoseSpaceCommand::cmdSyntax);
+    if (!result)
+        result.perror("Register PoseSpace command failed.");
+
     result = plugin.registerNode(
                       PoseSpaceDeformer::name, 
                       PoseSpaceDeformer::id, 
@@ -20,7 +28,7 @@ MStatus initializePlugin( MObject obj )
                       PoseSpaceDeformer::initialize,
                       MPxNode::kDeformerNode);
     if (!result)
-        result.perror("Register PoseSpaceDeformer node failed.");
+        result.perror("Register PoseSpace deformer failed.");
 
     result = plugin.registerNode(
                       RelaxDeformer::name, 
@@ -29,7 +37,7 @@ MStatus initializePlugin( MObject obj )
                       RelaxDeformer::initialize,
                       MPxNode::kDeformerNode);
     if (!result)
-        result.perror("Register RelaxDeformer node failed.");
+        result.perror("Register Relax deformer failed.");
 
     return result;
 }
@@ -39,13 +47,17 @@ MStatus uninitializePlugin( MObject obj)
     MStatus result;
     MFnPlugin plugin( obj );
 
+    result = plugin.deregisterCommand( PoseSpaceCommand::name );
+    if (!result)
+        result.perror("Deregister PoseSpace command failed.");
+
     result = plugin.deregisterNode( PoseSpaceDeformer::id );
     if (!result)
-        result.perror("Deregister PoseSpaceDeformer node failed.");
+        result.perror("Deregister PoseSpace deformer failed.");
 
     result = plugin.deregisterNode( RelaxDeformer::id );
     if (!result)
-        result.perror("Deregister RelaxDeformer node failed.");
+        result.perror("Deregister Relax deformer  failed.");
 
     return result;
 }

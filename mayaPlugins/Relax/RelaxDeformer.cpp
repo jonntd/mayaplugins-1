@@ -9,7 +9,7 @@
 
 
 MTypeId RelaxDeformer::id( PluginIDs::RelaxDeformer );
-const char * RelaxDeformer::name( "RelaxDeformer" );
+const char * RelaxDeformer::name( PluginNames::RelaxDeformer );
 
 MObject RelaxDeformer::aDebug;
 
