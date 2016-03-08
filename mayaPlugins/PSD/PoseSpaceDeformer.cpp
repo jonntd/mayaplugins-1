@@ -2,12 +2,15 @@
 #include "utils.h"
 
 #include <iostream>
+#include <map>
 
 #include <maya/MGlobal.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
+
+typedef std::map<int, MVector>  DeltaMap;
 
 
 MTypeId PoseSpaceDeformer::id( PluginIDs::PoseSpaceDeformer );
@@ -98,6 +101,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     MStatus stat;
     MString msg;
     MDataHandle handle;
+    MArrayDataHandle arrHnd;
+    MObject obj;
 
     handle = block.inputValue(aDebug);
     bool debug = handle.asBool();
@@ -113,7 +118,47 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
     // poseGeometry: If pose's weight is > 0.0001, then calculate poseGeometry in current pose using poseDelta (in bindSpace) and current joint matrices and skinClusterWeights
 
-    // outputGeom: Calculate affected vertex's delta and multiply with envelope and paintWeights
+    // Calculate affected vertex's delta and multiply with envelope and paintWeights
+    arrHnd = block.inputArrayValue(aPose);
+    DeltaMap deltaMap;
+    for(int i = 0; i < arrHnd.elementCount(); ++i)
+    {
+        int poseIndex = arrHnd.elementIndex();
+        MDataHandle poseHnd = arrHnd.inputValue();
+
+        handle = poseHnd.child(aPoseEnvelope);
+        float poseEnv = handle.asFloat();
+
+        handle = poseHnd.child(aPoseComponents);
+        obj = handle.data();
+        MFnIntArrayData fnIntArrData(obj);
+        MIntArray components = fnIntArrData.array();
+
+        handle = poseHnd.child(aPoseDelta);
+        obj = handle.data();
+        MFnVectorArrayData fnVectorArrData(obj);
+        MVectorArray delta = fnVectorArrData.array();
+
+        for(int j = 0; j < components.length(); ++j)
+        {
+
+            deltaMap[components[j]] += delta[j] * poseEnv;
+        }
+
+        arrHnd.next();
+    }
+
+    // Set the final positions
+    for (itGeo.reset(); !itGeom.isDone(); itGeo.next())
+    {
+        int i = itGeo.index();
+
+        if (deltaMap.find(i) != deltaMap.end())
+        {
+            float wt = weightValue(block, geomIndex, i);
+            itGeo.setPosition(itGeo.position() + deltaMap[i] * wt * env);
+        }
+    }
 
     return MStatus::kSuccess;
 }
