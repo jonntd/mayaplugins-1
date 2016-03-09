@@ -10,7 +10,8 @@
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
 
-typedef std::map<int, MVector>  DeltaMap;
+typedef std::map<int, MVector>  VectorMap;
+typedef std::map<int, MMatrix>  MatrixMap;
 
 
 MTypeId PoseSpaceDeformer::id( PluginIDs::PoseSpaceDeformer );
@@ -109,25 +110,36 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
     handle = block.inputValue(envelope);
     float env = handle.asFloat();
+    if (env < FLOAT_TOLERANCE)
+        return MS::kSuccess;
 
     // pose-2-pose distance: For each pose, check how far is its poseJointRotations are from other poses
+    // TODO : preCalculate pose-2-pose distance and coefficients in when pose is added
+
 
     // pose-2-joint distance: For each pose, check how far is poseJointRotations are from current jointRotations
+    arrHnd = block.inputArrayValue(aPose);
+    for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
+    {
+
+    }
 
     // pose-weight: Using pose distances calculate pose weights
+  
 
-    // poseGeometry: If pose's weight is > 0.0001, then calculate poseGeometry in current pose using poseDelta (in bindSpace) and current joint matrices and skinClusterWeights
-
-    // Calculate affected vertex's delta and multiply with envelope and paintWeights
+    // Get delta from weighted poses
     arrHnd = block.inputArrayValue(aPose);
-    DeltaMap deltaMap;
-    for(int i = 0; i < arrHnd.elementCount(); ++i)
+    VectorMap deltaMap;
+    for(int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
     {
         int poseIndex = arrHnd.elementIndex();
         MDataHandle poseHnd = arrHnd.inputValue();
 
         handle = poseHnd.child(aPoseEnvelope);
         float poseEnv = handle.asFloat();
+
+        if (poseEnv < FLOAT_TOLERANCE)
+            continue;
 
         handle = poseHnd.child(aPoseComponents);
         obj = handle.data();
@@ -140,13 +152,96 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         MVectorArray delta = fnVectorArrData.array();
 
         for(int j = 0; j < components.length(); ++j)
-        {
-
             deltaMap[components[j]] += delta[j] * poseEnv;
+    }
+
+    if (deltaMap.empty())
+        return MS::kSuccess;
+
+    // Get joint matrices from skinCluster
+    MatrixMap jtMatrices;
+    {
+        // Get skinCluster
+        MFnSkinCluster fnSkinCluster;
+        {
+            MFnDependencyNode fnDeformer(thisMObect());
+            MPlug plug = fnDeformer.findPlug("input[0].inputGeom");
+
+            MItDependencyGraph iter(
+                plug,
+                MFn::kSkinClusterFilter,
+                MItDependencyGraph::kUpstream,
+                MItDependencyGraph::kDepthFirst,
+                MItDependencyGraph::kNodeLevel,
+                &stat);
+            MCheckStatus(stat, ErrorStr::PSDSCNotFound);
+
+            if (iter.isDone())
+                MReturnFailure(ErrorStr::PSDSCNotFound);
+
+            stat = fnSkinCluster.setObject(iter.currentItem());
+            MCheckStatus(stat, ErrorStr::PSDSCNotFound);
+#if 0
+            MPlug plug = fnDeformer.findPlug(aSkinClusterWeightList);
+            MPlugArray plugArr;
+            plug.connectedTo(plugArr, 1, 0);
+            obj = plugArr[0].node();
+            fnSkinCluster.setObject(obj);
+#endif
         }
 
-        arrHnd.next();
+        MPlug bindPlug = fnSkinCluster.findPlug("bindPreMatrix");
+        MPlug jtMatPlug = fnSkinCluster.findPlug("matrix");
+
+        MFnMatrixData fnMatrix;
+        for (int i = 0; i < jtMatPlug.numElements(); ++i)
+        {
+            if (jtMatPlug[i].logicalIndex() != bindPlug[i].logicalIndex())
+            {
+                MReturnFailure("Matrix and bindPreMatrix plugs in skincluster doesnt match");
+            }
+
+            fnMatrix.setObject(bindPlug[i].asMObject());
+            MMatrix bindInvMat = fnMatrix.matrix();
+
+            fnMatrix.setObject(jtMatPlug[i].asMObject());
+            MMatrix jtMat = fnMatrix.matrix();
+
+            MMatrix scMat = world * bindInvMat * jtMat * world.inverse();
+            jtMatrices[jtMatPlug[i].logicalIndex()] = scMat;
+        }
     }
+
+    
+    // Convert delta to skinSpace
+    arrHnd = block.inputArrayValue(aSkinClusterWeightList);
+    for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
+    {
+        int c = arrHnd.elementIndex();
+
+        if (deltaMap.find(c) == deltaMap.end())
+            continue;
+
+        handle = arrHnd.inputValue();
+        handle = handle.child(aSkinClusterWeights);
+        MArrayDataHandle wtArrHnd(handle);
+
+        MMatrix bindToSkinMat;
+        for (int j = 0; j < wtArrHnd.elementCount(); ++j, wtArrHnd.next())
+        {
+            int jtIdx = wtArrHnd.elementIndex();
+            double wt = wtArrHnd.inputValue().asDouble();
+            MMatrix mat = jtMatrices[jtIdx] * wt;
+
+            if (j)
+                bindToSkinMat += mat;
+            else
+                bindToSkinMat = mat;
+        }
+
+        deltaMap[c] *= bindToSkinMat;
+    }
+
 
     // Set the final positions
     for (itGeo.reset(); !itGeom.isDone(); itGeo.next())

@@ -25,11 +25,10 @@ namespace ErrorStr
 {
     conststr FailedToParseArgs                  = "Failed to parse arguments";
 
-    conststr PSDeformerNotFound                 = "PoseSpaceDeformer was not found to add pose to";
-    conststr PSDMeshNotFound                    = "PoseMesh was not found to add new pose";
-
+    conststr PSDeformerNotFound                 = "PoseSpaceDeformer was not found";
+    conststr PSDMeshNotFound                    = "PoseMesh was not found";
+    conststr PSDSCNotFound                      = "SkinCluster was not found";
     conststr PSDCreateFailed                    = "Failed to create poseSpaceDeformer";
-    conststr PSDSCNotFoundCreateFailed          = "Failed to create poseSpaceDeformer, since skinCluster not found on mesh";
 };
 
 

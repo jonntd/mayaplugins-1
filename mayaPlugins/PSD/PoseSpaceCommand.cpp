@@ -188,13 +188,13 @@ MStatus PoseSpaceCommand::create()
             MItDependencyGraph::kDepthFirst,
             MItDependencyGraph::kNodeLevel, 
             &stat);
-        MCheckStatus(stat, ErrorStr::PSDSCNotFoundCreateFailed);
+        MCheckStatus(stat, ErrorStr::PSDSCNotFound);
 
         if (iter.isDone())            
-            MReturnFailure(ErrorStr::PSDSCNotFoundCreateFailed);
+            MReturnFailure(ErrorStr::PSDSCNotFound);
 
         stat = fnSkinCluster.setObject(iter.currentItem());
-        MCheckStatus(stat, ErrorStr::PSDSCNotFoundCreateFailed);
+        MCheckStatus(stat, ErrorStr::PSDSCNotFound);
     }
 
 
@@ -257,13 +257,35 @@ MStatus PoseSpaceCommand::addPose()
     MPlug scWtsPlug;
     JointMatrixMap jtMatrices;
     {
-        MPlug plug = fnDeformer.findPlug(PoseSpaceDeformer::aSkinClusterWeightList);
-        MPlugArray plugArr;
-        plug.connectedTo(plugArr, 1, 0);
-        scWtsPlug = plugArr[0];
+        // Get skinCluster
+        MFnSkinCluster fnSkinCluster;
+        {
+            MPlug plug = fnDeformer.findPlug("input[0].inputGeom");
 
-        obj = plug.node();
-        MFnSkinCluster fnSkinCluster(obj);
+            MItDependencyGraph iter(
+                plug,
+                MFn::kSkinClusterFilter,
+                MItDependencyGraph::kUpstream,
+                MItDependencyGraph::kDepthFirst,
+                MItDependencyGraph::kNodeLevel,
+                &stat);
+            MCheckStatus(stat, ErrorStr::PSDSCNotFound);
+
+            if (iter.isDone())
+                MReturnFailure(ErrorStr::PSDSCNotFound);
+
+            stat = fnSkinCluster.setObject(iter.currentItem());
+            MCheckStatus(stat, ErrorStr::PSDSCNotFound);
+#if 0
+            MPlug plug = fnDeformer.findPlug(PoseSpaceDeformer::aSkinClusterWeightList);
+            MPlugArray plugArr;
+            plug.connectedTo(plugArr, 1, 0);
+            obj = plugArr[0].node();
+            fnSkinCluster.setObject(obj);
+#endif
+        }
+        
+        scWtsPlug = fnSkinCluster.findPlug("weightList");
         MPlug bindPlug = fnSkinCluster.findPlug("bindPreMatrix");
         MPlug jtMatPlug = fnSkinCluster.findPlug("matrix");
         MMatrix srcGeomWorldMat = srcPath.inclusiveMatrix();
@@ -322,10 +344,10 @@ MStatus PoseSpaceCommand::addPose()
             int jtIdx = wtsPlug[j].logicalIndex();
             MMatrix mat = wtsPlug[j].asDouble() * jtMatrices[jtIdx];
 
-            if ( j==0 )
-                skinMatrix = mat;
-            else
+            if (j)
                 skinMatrix += mat;
+            else
+                skinMatrix = mat;
         }
 
         // Convert delta from skin to bind space
@@ -363,6 +385,10 @@ MStatus PoseSpaceCommand::addPose()
     pPoseDelta.setValue(obj);
 
     setResult(poseIndex);
+
+
+    // Calculate pose-2-pose distance and coefficients and cache it in attributes
+    // TODO
 
     return MS::kSuccess;
 }
