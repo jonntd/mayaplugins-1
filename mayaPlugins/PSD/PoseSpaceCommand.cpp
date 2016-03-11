@@ -386,9 +386,5 @@ MStatus PoseSpaceCommand::addPose()
 
     setResult(poseIndex);
 
-
-    // Calculate pose-2-pose distance and coefficients and cache it in attributes
-    // TODO
-
     return MS::kSuccess;
 }
