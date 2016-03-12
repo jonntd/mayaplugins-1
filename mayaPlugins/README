@@ -10,13 +10,13 @@ Building plugins:
         Get Maya plugin ids from Autodesk and set it in utils.h
 
     Run make in command prompt
-        This should produce plugin.so
+        This should produce <PLUGIN_NAME>.so
 
 
 In Maya:scpriptEditor:python:
 
     cmds.file(new=1, f=1)
-    cmds.unloadPlugin("plugin")
+    cmds.unloadPlugin(<PLUGIN_NAME>)
 
     cmds.loadPlugin("mayaPlugins/*.so")
 

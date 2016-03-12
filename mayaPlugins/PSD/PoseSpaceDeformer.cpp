@@ -5,11 +5,20 @@
 
 
 #include <maya/MGlobal.h>
+#include <maya/MPoint.h>
+#include <maya/MMatrix.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
-
+#include <maya/MFnIntArrayData.h>
+#include <maya/MFnVectorArrayData.h>
+#include <maya/MFnMatrixData.h>
+#include <maya/MFnSkinCluster.h>
+#include <maya/MFnDependencyNode.h>
+#include <maya/MItDependencyGraph.h>
+#include <maya/MItGeometry.h>
+#include <maya/MVectorArray.h>
 
 
 MTypeId PoseSpaceDeformer::id( PluginIDs::PoseSpaceDeformer );
@@ -106,7 +115,6 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     MStatus stat;
     MString msg;
     MDataHandle handle;
-    MArrayDataHandle arrHnd;
     MObject obj;
 
     handle = block.inputValue(aDebug);
@@ -118,18 +126,19 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         return MS::kSuccess;
 
 
-    // Cacu
+    // If poses are dirty, recalculate pose2Pose weights
     if (_posesDirty)
     {
         _posesDirty = false;
 
         // Collect all pose joint rotations values
-        arrHnd = block.inputArrayValue(aPose);
+        MArrayDataHandle arrHnd = block.inputArrayValue(aPose);
         for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
         {
             handle = arrHnd.inputValue();
             handle = handle.child(aPoseJoints);
             MArrayDataHandle jtArrHnd(handle);
+
             PoseJointMap jtMap;
             for (int j = 0; j < jtArrHnd.elementCount(); ++j, jtArrHnd.next())
             {
@@ -144,7 +153,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
                 jtMap[jtArrHnd.elementIndex()] = PoseJoint(rot, fallOff);
             }
-            _poses.append(jtMap);
+
+            _poses.push_back(jtMap);
         }
 
         // pose-2-pose weights: For each pose, check how far is its poseJointRotations are from other poses
@@ -156,7 +166,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             // Same pose
             pose2PoseWeights[i][i] = 1;
 
-            if (i+1 == poseJoints.size())
+            if (i+1 == _poses.size())
                 break;
 
             // Other poses
@@ -164,12 +174,12 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             {
                 double weightij = 1;
                 double weightji = 1;
-                for (VectorMap::const_iterator iter1 = _poses[i].begin(); iter1 != _poses[i].end(); ++iter1)
+                for (PoseJointMap::const_iterator iter1 = _poses[i].begin(); iter1 != _poses[i].end(); ++iter1)
                 {
                     // If joint in pose[i] matches pose[j], calc distance, else return distance as -1
-                    int jtIdx = iter1.first;
-                    VectorMap::const_iterator iter2 = _poses[j].find(jtIdx);
-                    if (iter2 == poseJoints[j].end())
+                    int jtIdx = iter1->first;
+                    PoseJointMap::const_iterator iter2 = _poses[j].find(jtIdx);
+                    if (iter2 == _poses[j].end())
                     {
                         weightij = -1;
                         weightji = -1;
@@ -178,15 +188,15 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     else
                     {
                         // PoseJoint of ith pose
-                        MVector rot1 = iter1.second.rotation;
-                        float fallOff1 = iter1.second.fallOff;
+                        MVector rot1 = iter1->second.rotation;
+                        float fallOff1 = iter1->second.fallOff;
 
                         // PoseJoint of jth pose
-                        MVector rot2 = iter2.second.rotation;
-                        float fallOff2 = iter2.second.fallOff;
+                        MVector rot2 = iter2->second.rotation;
+                        float fallOff2 = iter2->second.fallOff;
 
                         // Distance between poseJoint
-                        float angle = jtRot1.angle(jtRot2);
+                        float angle = rot1.angle(rot2);
                         
                         // Accumulate pose weight using weight of this joint (angle/fallOff)
                         if (angle < fallOff2)
@@ -221,11 +231,11 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
     // Get current joint rotations
     VectorMap currJointRot;
-    arrHnd = block.inputArrayValue(aJoint);
-    for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
+    MArrayDataHandle jtArrHnd = block.inputArrayValue(aJoint);
+    for (int i = 0; i < jtArrHnd.elementCount(); ++i, jtArrHnd.next())
     {
-        int jtIdx = arrHnd.elementIndex();
-        MDataHandle jtHnd = arrHnd.inputValue();
+        int jtIdx = jtArrHnd.elementIndex();
+        MDataHandle jtHnd = jtArrHnd.inputValue();
 
         handle = jtHnd.child(aJointRotation);
         double3& data = handle.asDouble3();
@@ -236,24 +246,27 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
 
     // pose-2-currJoints weights: For each pose, check how far is poseJointRotations are from current jointRotations
-    MDoubleArray pose2CurrJoints(_poses.size());
+    MDoubleArray pose2CurrJointWeights(_poses.size());
     for (int i = 0; i < _poses.size(); ++i)
     {
         double weight = 1;
         for (PoseJointMap::const_iterator iter = _poses[i].begin(); iter != _poses[i].end(); ++iter)
         {
-            int jtIdx = iter.first;
-            const PoseJoint& poseJt = iter.second;
+            int jtIdx = iter->first;
+            const PoseJoint& poseJt = iter->second;
 
             // TODO: Get current joint's rotation and get distance between that and poseJt.rotation and fallOff dist
             double angle = currJointRot[jtIdx].angle(poseJt.rotation);
             if (angle < poseJt.fallOff)
-                weight *= angle / poseJt.fallOff;
+                weight *= 1 - (angle / poseJt.fallOff);
             else
+            {
                 weight = 0;
+                break;
+            }
         }
 
-        pose2CurrJointsWeights[i] = weight;
+        pose2CurrJointWeights[i] = weight;
     }
 
 
@@ -264,19 +277,19 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         double weight = 0;
         for (int j = 0; j < _poses.size(); ++j)
         {
-            weight += _pose2PoseWeights[i][j] * pose2CurrJoints[j];
+            weight += _pose2PoseWeights[i][j] * pose2CurrJointWeights[j];
         }
         poseWeights[i] = weight;
     }
 
 
     // Get delta from weighted poses
-    arrHnd = block.inputArrayValue(aPose);
+    MArrayDataHandle poseArrHnd = block.inputArrayValue(aPose);
     VectorMap deltaMap;
-    for(int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
+    for(int i = 0; i < poseArrHnd.elementCount(); ++i, poseArrHnd.next())
     {
-        int poseIndex = arrHnd.elementIndex();
-        MDataHandle poseHnd = arrHnd.inputValue();
+        int poseIndex = poseArrHnd.elementIndex();
+        MDataHandle poseHnd = poseArrHnd.inputValue();
 
         handle = poseHnd.child(aPoseEnvelope);
         float poseEnv = handle.asFloat();
@@ -307,8 +320,10 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         // Get skinCluster
         MFnSkinCluster fnSkinCluster;
         {
-            MFnDependencyNode fnDeformer(thisMObect());
-            MPlug plug = fnDeformer.findPlug("input[0].inputGeom");
+            MFnDependencyNode fnDeformer(thisMObject());
+            MPlug plug = fnDeformer.findPlug("input");
+            plug = plug[0];
+            plug = plug.child(0);
 
             MItDependencyGraph iter(
                 plug,
@@ -357,15 +372,15 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
     
     // Convert delta to skinSpace
-    arrHnd = block.inputArrayValue(aSkinClusterWeightList);
-    for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
+    MArrayDataHandle wtListArrHnd = block.inputArrayValue(aSkinClusterWeightList);
+    for (int i = 0; i < wtListArrHnd.elementCount(); ++i, wtListArrHnd.next())
     {
-        int c = arrHnd.elementIndex();
+        int c = wtListArrHnd.elementIndex();
 
         if (deltaMap.find(c) == deltaMap.end())
             continue;
 
-        handle = arrHnd.inputValue();
+        handle = wtListArrHnd.inputValue();
         handle = handle.child(aSkinClusterWeights);
         MArrayDataHandle wtArrHnd(handle);
 
@@ -387,14 +402,16 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
 
     // Set the final positions
-    for (itGeo.reset(); !itGeom.isDone(); itGeo.next())
+    for (itGeo.reset(); !itGeo.isDone(); itGeo.next())
     {
         int i = itGeo.index();
 
         if (deltaMap.find(i) != deltaMap.end())
         {
             float wt = weightValue(block, geomIndex, i);
-            itGeo.setPosition(itGeo.position() + deltaMap[i] * wt * env);
+            MPoint position = itGeo.position();
+            position += deltaMap[i] * wt * env;
+            itGeo.setPosition(position);
         }
     }
 

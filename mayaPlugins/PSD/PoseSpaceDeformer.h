@@ -7,6 +7,8 @@
 #include <maya/MPxDeformerNode.h>
 #include <maya/MTypeId.h>
 #include <maya/MDataBlock.h>
+#include <maya/MVector.h>
+#include <maya/MDoubleArray.h>
 
 
 typedef std::map<int, MVector>  VectorMap;
@@ -53,13 +55,14 @@ private:
     class PoseJoint
     {
     public:
-        PoseJoint(_rotation, _fallOff) : rotation(_rotation), fallOff(_fallOff) {}
+        PoseJoint() {}
+        PoseJoint(MVector _rotation, float _fallOff) : rotation(_rotation), fallOff(_fallOff)   {}
 
         MVector     rotation;
         float       fallOff;
     };
 
-    typedef std::map<PoseJoint> PoseJointMap;
+    typedef std::map<int, PoseJoint>    PoseJointMap;
 
     bool                        _posesDirty;
     std::vector<MDoubleArray>   _pose2PoseWeights;

@@ -260,7 +260,9 @@ MStatus PoseSpaceCommand::addPose()
         // Get skinCluster
         MFnSkinCluster fnSkinCluster;
         {
-            MPlug plug = fnDeformer.findPlug("input[0].inputGeom");
+            MPlug plug = fnDeformer.findPlug("input");
+            plug = plug[0];
+            plug = plug.child(0);
 
             MItDependencyGraph iter(
                 plug,

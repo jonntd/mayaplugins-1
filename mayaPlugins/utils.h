@@ -34,31 +34,32 @@ namespace ErrorStr
 
 #define FLOAT_TOLERANCE        0.0000001f //std::numeric_limits<float>::epsilon
 
+#define FUNCLINE      MString(__FUNCTION__) + " (" + __FILE__ + " :" + __LINE__ + ")"
 
-#define MCheckStatus(status,message)            \
-    if ( status != MStatus::kSuccess )          \
-    {                                           \
-        if ( MString(message) != "" )           \
-        {                                       \
-            MGlobal::displayError(message);     \
-            cerr << message << "\n";            \
-        }                                       \
-        return status;                          \
+#define MCheckStatus(status,message)                    \
+    if ( status != MStatus::kSuccess )                  \
+    {                                                   \
+        if ( MString(message) != "" )                   \
+        {                                               \
+            MString _msg = message;                     \
+            _msg += "    in ";                          \
+            _msg += FUNCLINE;                           \
+            MGlobal::displayError(_msg);                \
+            cerr << _msg << "\n";                       \
+        }                                               \
+        return status;                                  \
     }
 
-#define MReturnFailure(message)             \
-    {                                       \
-    MGlobal::displayError(message);         \
-    cerr << message << "\n";                \
-    return MStatus::kFailure;               \
-    }
+#define MReturnFailure(message)             MCheckStatus(MStatus::kFailure, message)
 
 
-#define MDebugPrint(message)                                \
-    {                                                       \
-    MString _msg = MString(__FUNCTION__) + ": " + message;  \
-    MGlobal::displayInfo(_msg);                             \
-    std::cerr << _msg.asChar() << "\n";                     \
+#define MDebugPrint(message)                            \
+    {                                                   \
+    MString _msg = message;                             \
+    _msg += "    in ";                                  \
+    _msg += FUNCLINE;                                   \
+    MGlobal::displayInfo(_msg);                         \
+    std::cerr << _msg.asChar() << "\n";                 \
     }
 
 
