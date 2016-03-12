@@ -73,7 +73,7 @@ MStatus PoseSpaceDeformer::initialize()
     aPoseEnvelope = nAttr.create("poseEnvelope", "pe", MFnNumericData::kFloat);
 
     aPoseJointRotation = nAttr.create("poseJointRotations", "pjr", MFnNumericData::k3Double);
-    aPoseJointFallOff = nAttr.create("poseJointFallOff", "pjf", MFnNumericData::kFloat);
+    aPoseJointFallOff = nAttr.create("poseJointFallOff", "pjf", MFnNumericData::kFloat, 90);
     aPoseJoints = cAttr.create("poseJoints", "pj");
     cAttr.setArray(true);
 

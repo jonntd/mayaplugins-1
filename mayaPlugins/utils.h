@@ -29,6 +29,7 @@ namespace ErrorStr
     conststr PSDMeshNotFound                    = "PoseMesh was not found";
     conststr PSDSCNotFound                      = "SkinCluster was not found";
     conststr PSDCreateFailed                    = "Failed to create poseSpaceDeformer";
+    conststr PSDJointConnectionFailed           = "Couldnt connect joint %s to poseSpaceDeformer";
 };
 
 

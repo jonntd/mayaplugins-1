@@ -49,6 +49,7 @@ MSyntax PoseSpaceCommand::cmdSyntax()
 
     syntax.addFlag(SFLAG_CREATE, LFLAG_CREATE, MSyntax::kString);
     syntax.addFlag(SFLAG_ADDPOSE, LFLAG_ADDPOSE, MSyntax::kString);
+    syntax.makeFlagMultiUse(SFLAG_ADDPOSE);
 
     syntax.enableQuery(false);
     syntax.useSelectionAsDefault(true);
@@ -75,16 +76,30 @@ MStatus PoseSpaceCommand::parseArgs( const MArgList& args )
 
         stat = argDB.getFlagArgument(LFLAG_CREATE, 0, _poseSpaceDeformer);
         MCheckStatus(stat, ErrorStr::FailedToParseArgs);
-        return MS::kSuccess;
     }
-
-    _operation = argDB.isFlagSet(LFLAG_ADDPOSE) ? LFLAG_ADDPOSE : "";
-    if (argDB.isFlagSet(LFLAG_ADDPOSE))
+    else if (argDB.isFlagSet(LFLAG_ADDPOSE))
     {
         _operation = LFLAG_ADDPOSE;
 
-        stat = argDB.getFlagArgument(LFLAG_ADDPOSE, 0, _poseSpaceDeformer);
-        MCheckStatus(stat, ErrorStr::FailedToParseArgs);
+        for (uint i = 0; i < argDB.numberOfFlagUses(LFLAG_ADDPOSE); i++)
+        {
+            MArgList argList;
+            stat = argDB.getFlagArgumentList(LFLAG_ADDPOSE, i, argList);
+            MCheckStatus(stat, ErrorStr::FailedToParseArgs);
+
+            MString name = argList.asString(0, &stat);
+            
+            // Get PSD node and jointss
+            MSelectionList sel;
+            sel.add(name);
+            MObject obj;
+            sel.getDependNode(0, obj);
+            MFnDependencyNode fnDep(obj);
+            if (fnDep.typeId() == PoseSpaceDeformer::id)
+                _poseSpaceDeformer = name;
+            else if (obj.apiType() == MFn::kJoint)
+                _joints.append(name);
+        }
         return MS::kSuccess;
     }
 
@@ -239,6 +254,11 @@ MStatus PoseSpaceCommand::addPose()
     MCheckStatus(stat, "");
     MFnGeometryFilter fnDeformer(obj);
 
+    // Check joints
+    if (_joints.length() == 0)
+        MReturnFailure("No joints provided to be added to pose");
+
+
     // Get output mesh from deformer
     MDagPath srcPath;
     fnDeformer.getPathAtIndex(0, srcPath);
@@ -385,6 +405,61 @@ MStatus PoseSpaceCommand::addPose()
     obj = fnVectorArrData.create();
     fnVectorArrData.set(deltas);
     pPoseDelta.setValue(obj);
+
+
+    // Add joints to pose
+    for (int i = 0; i < _joints.length(); ++i)
+    {
+        MFnTransform fnJnt(_joints[i]);
+
+        // Check if joint index exists in deformer
+        int jtIndex = -1;
+        MPlug rotPlug = fnJnt.findPlug('rotation');
+        MPlugArray conns;
+        rotPlug.connectedTo(conns, 0, 1);
+        for (int j = 0; j < conns.length(); ++j)
+        {
+            if (conns[j].node() == fnDeformer.object() && conns[j] == PoseSpaceDeformer::aJoint)
+            {
+                jtIndex = conns[j].logicalIndex();
+            }
+        }
+
+        // Connect joint
+        if (jtIndex < 0)
+        {
+            MPlug pjtPlug = fnDeformer.findPlug(PoseSpaceDeformer::aJoint);
+            int numJts = pjtPlug.numElements();
+            if (numJts)
+                jtIndex = pjtPlug[numJts - 1].logicalIndex() + 1;
+            else
+                jtIndex = 0;
+
+            pjtPlug = pjtPlug.elementByLogicalIndex(jtIndex);
+
+            MDGModifier dgMod;
+            stat = dgMod.connect(rotPlug, pjtPlug);
+            stat = dgMod.doIt();
+            char buf[1024];
+            sprintf(buf, ErrorStr::PSDJointConnectionFailed, _joints[i].asChar());
+            MCheckStatus(stat, buf);
+        }
+
+        // Set poseJoint
+        MPlug pPoseJoint = pPose.child(PoseSpaceDeformer::aPoseJoints);
+        pPoseJoint = pPoseJoint.elementByLogicalIndex(jtIndex);
+        MPlug pRotation = pPoseJoint.child(PoseSpaceDeformer::aPoseJointRotation);
+
+        // Set joint rotation data
+        MEulerRotation rot;
+        fnJnt.getRotation(rot);
+        MFnNumericData fnData;
+        MObject obj = fnData.create(MFnNumericData::k3Double);
+        fnData.setData(rot.x, rot.y, rot.z);
+        pRotation.setValue(obj);
+    }
+
+
 
     setResult(poseIndex);
 

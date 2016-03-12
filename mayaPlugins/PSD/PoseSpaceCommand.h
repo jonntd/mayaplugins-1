@@ -5,6 +5,7 @@
 #include <maya/MSelectionList.h>
 #include <maya/MArgList.h>
 #include <maya/MSyntax.h>
+#include <maya/MStringArray.h>
 
 class PoseSpaceCommand : public MPxCommand 
 {
@@ -36,6 +37,7 @@ private:
     MSelectionList      _selList;
 
     MString             _poseSpaceDeformer;
+    MStringArray        _joints;
 };
 
 
