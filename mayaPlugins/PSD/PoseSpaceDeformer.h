@@ -19,8 +19,13 @@ class PoseSpaceDeformer: public MPxDeformerNode
 {
 public:
 
+    PoseSpaceDeformer();
+
     static  void*       creator();
     static  MStatus     initialize();
+
+    MStatus setDependentsDirty( const MPlug& plugBeingDirtied, 
+                                MPlugArray& affectedPlugs );
 
     MStatus deform( MDataBlock&     block, 
                     MItGeometry&    itGeo, 
@@ -40,10 +45,11 @@ public:
 
     static MObject          aPose;
     static MObject          aPoseName;
-    static MObject          aPoseEnvelope;
-    static MObject          aPoseJoints;
+    static MObject          aPoseJoint;
     static MObject          aPoseJointRotation;
     static MObject          aPoseJointFallOff;
+    static MObject          aPoseTarget;
+    static MObject          aPoseEnvelope;
     static MObject          aPoseComponents;
     static MObject          aPoseDelta;
 

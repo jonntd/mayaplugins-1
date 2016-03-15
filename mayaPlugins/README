@@ -18,14 +18,52 @@ In Maya:scpriptEditor:python:
     cmds.file(new=1, f=1)
     cmds.unloadPlugin(<PLUGIN_NAME>)
 
+    # Load plugins
     cmds.loadPlugin("mayaPlugins/*.so")
 
-    cmds.select(<mesh with skinCluster>)
+    # Create deformer
+    deformMesh = <mesh with skinCluster>
+    cmds.select(deformMesh)
     psdNode = cmds.poseSpaceCommand(create='poseDeformerNewName')
 
-    cmds.select(<mesh with skinCluster>)
-    dupMesh = cmds.duplicate()
-    <edit dupMesh vertices to set it up as pose mesh>
-    cmds.select(dupMesh)
+    # Add pose
+    <Pose/rotate joints>
+    poseIdx = cmds.poseSpaceCommand(psdNode, 'joint2', addPose=1)
 
-    poseIndex = cmds.poseSpaceCommand(addPose=psdNode)
+    duplicateMesh = cmds.duplicate(deformMesh)
+    cmds.hide(deformMesh)
+    <edit duplicateMesh vertices to set it up as pose mesh>
+    cmds.select(duplicateMesh)
+    poseTargetIdx = cmds.poseSpaceCommand(psdNode, setPoseTarget=poseIdx)
+    cmds.delete(duplicateMesh)
+    cmds.showHidden(deformMesh)
+
+    # 
+
+
+
+
+cmds.file(new=1, f=1)
+cmds.unloadPlugin("plugin")
+
+cmds.loadPlugin("/home/vmelapudi/Downloads/vit/mayaPlugins/*.so")
+
+cmds.file( '~/Downloads/vit/mayaPlugins/skinnedCylinder.ma', f=1, o=1 )
+
+# Create deformer
+orig = 'pCylinder1'
+cmds.select(orig)
+psd = cmds.poseSpaceCommand(create="poseSpaceDeformer1")
+
+# Add pose
+cmds.rotate( 0, 0, 42, 'joint2', r=1 )
+poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
+
+dup = cmds.duplicate(orig)[0]
+cmds.hide(orig)
+cmds.select(dup+'.vtx[160:165]')
+cmds.move(36, 0, 0, r=1)
+cmds.select(dup)
+poseIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
+cmds.delete(dup)
+cmds.showHidden(orig)

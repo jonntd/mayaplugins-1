@@ -6,11 +6,15 @@
 #include <maya/MArgList.h>
 #include <maya/MSyntax.h>
 #include <maya/MStringArray.h>
+#include <maya/MObjectArray.h>
+
 
 class PoseSpaceCommand : public MPxCommand 
 {
 public:
     static void*        creator();    
+
+    void                usage();
     static MSyntax      cmdSyntax();
 
     MStatus             doIt(const MArgList& args);
@@ -25,19 +29,25 @@ private:
 
 
     MStatus             parseArgs( const MArgList& args );
-    MStatus             getDeformerObj(MObject& defObj);
-    MStatus             getMeshFromSelList(MObject& meshObj);
+
+    MStatus             getMeshFromSelList(MObject& obj);
+    MStatus             getDeformerFromSelList(MObject& obj);
+    MStatus             getJointsFromSelList(MObjectArray& joints);
+
     MStatus             create();
-    MStatus             addPose();
+    MStatus             setPose();
+    MStatus             setPoseTarget();
 
 
 private:
 
-    MString             _operation;
     MSelectionList      _selList;
 
+    MString             _operation;
+
     MString             _poseSpaceDeformer;
-    MStringArray        _joints;
+    int                 _poseIndex;
+    int                 _targetIndex;
 };
 
 

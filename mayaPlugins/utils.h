@@ -25,28 +25,31 @@ namespace ErrorStr
 {
     conststr FailedToParseArgs                  = "Failed to parse arguments";
 
-    conststr PSDeformerNotFound                 = "PoseSpaceDeformer was not found";
-    conststr PSDMeshNotFound                    = "PoseMesh was not found";
+    conststr PSDDeformerNotProvided             = "PoseSpaceDeformer was not provided";
+    conststr PSDMeshNotSelected                 = "Mesh was not selected";
+    conststr PSDJointsNotProvided               = "Joints were not provided";
     conststr PSDSCNotFound                      = "SkinCluster was not found";
     conststr PSDCreateFailed                    = "Failed to create poseSpaceDeformer";
     conststr PSDJointConnectionFailed           = "Couldnt connect joint %s to poseSpaceDeformer";
+    conststr PSDInvalidPoseIndex                = "No pose found at given pose index";
+    conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index";
 };
 
 
 #define FLOAT_TOLERANCE        0.0000001f //std::numeric_limits<float>::epsilon
 
-#define FUNCLINE      MString(__FUNCTION__) + " (" + __FILE__ + " :" + __LINE__ + ")"
+#define FUNCLINE      (MString(__FUNCTION__) + " (" + __FILE__ + " :" + __LINE__ + ")").asChar()
 
-#define MCheckStatus(status,message)                    \
+#define MCheckStatus(status, message)                   \
     if ( status != MStatus::kSuccess )                  \
     {                                                   \
         if ( MString(message) != "" )                   \
         {                                               \
-            MString _msg = message;                     \
-            _msg += "    in ";                          \
-            _msg += FUNCLINE;                           \
-            MGlobal::displayError(_msg);                \
-            cerr << _msg << "\n";                       \
+            MString f = FUNCLINE;                       \
+            char buf[1024];                             \
+            sprintf(buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
+            MGlobal::displayError(buf);                 \
+            cerr << buf << "\n";                        \
         }                                               \
         return status;                                  \
     }
@@ -56,12 +59,14 @@ namespace ErrorStr
 
 #define MDebugPrint(message)                            \
     {                                                   \
-    MString _msg = message;                             \
-    _msg += "    in ";                                  \
-    _msg += FUNCLINE;                                   \
-    MGlobal::displayInfo(_msg);                         \
-    std::cerr << _msg.asChar() << "\n";                 \
+        char buf[1024];                                 \
+        sprintf(buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
+        MGlobal::displayInfo(buf);                      \
+        cerr << buf << "\n";                            \
     }
+
+
+#define MVector2Str(rot)       MString("") + rot.x + ", " + rot.y + ", " + rot.z
 
 
 
