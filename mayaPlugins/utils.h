@@ -9,8 +9,8 @@ typedef const char* const conststr;
 
 namespace PluginIDs
 {
-    const long PoseSpaceDeformer     = 0x8104D;
-    const long RelaxDeformer         = 0x34567;
+    const long PoseSpaceDeformer     = 0x00120781;
+    const long RelaxDeformer         = 0x00120782;
 };
 
 namespace PluginNames

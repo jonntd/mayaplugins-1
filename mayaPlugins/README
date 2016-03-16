@@ -1,25 +1,27 @@
 
 Building plugins:
 
-    In Makefile
-        Change MAYA_LOCATION
-        Change INSTALL_LOCATION
-        Change PLUGIN_NAME
-
-    Get plugin ids
-        Get Maya plugin ids from Autodesk and set it in utils.h
-
-    Run make in command prompt
+    Linux
+        In Makefile
+            Change MAYA_LOCATION
+            Change PLUGIN_NAME
+        Run >make in command line
         This should produce <PLUGIN_NAME>.so
+    Windows
+        Set MAYA_LOCATION in environment variable
+        Open plugin.sln in visual studio
+        Build/F7
 
-
-In Maya:scpriptEditor:python:
+Using plugins: In Maya:python script editor:
 
     cmds.file(new=1, f=1)
     cmds.unloadPlugin(<PLUGIN_NAME>)
 
     # Load plugins
-    cmds.loadPlugin("mayaPlugins/*.so")
+    Linux:
+        cmds.loadPlugin("<PLUGIN_NAME>.so")
+    Windows
+        cmds.loadPlugin("<PLUGIN_NAME>.mll")
 
     # Create deformer
     deformMesh = <mesh with skinCluster>
@@ -30,6 +32,7 @@ In Maya:scpriptEditor:python:
     <Pose/rotate joints>
     poseIdx = cmds.poseSpaceCommand(psdNode, 'joint2', addPose=1)
 
+    # Add pose target
     duplicateMesh = cmds.duplicate(deformMesh)
     cmds.hide(deformMesh)
     <edit duplicateMesh vertices to set it up as pose mesh>
@@ -38,7 +41,6 @@ In Maya:scpriptEditor:python:
     cmds.delete(duplicateMesh)
     cmds.showHidden(deformMesh)
 
-    # 
 
 
 
@@ -57,6 +59,19 @@ psd = cmds.poseSpaceCommand(create="poseSpaceDeformer1")
 
 # Add pose
 cmds.rotate( 0, 0, 42, 'joint2', r=1 )
+poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
+
+dup = cmds.duplicate(orig)[0]
+cmds.hide(orig)
+cmds.select(dup+'.vtx[160:165]')
+cmds.move(36, 0, 0, r=1)
+cmds.select(dup)
+poseIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
+cmds.delete(dup)
+cmds.showHidden(orig)
+
+# Add pose
+cmds.rotate( 0, 0, 90, 'joint2', r=1 )
 poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
 
 dup = cmds.duplicate(orig)[0]

@@ -80,7 +80,7 @@ void PoseSpaceCommand::usage()
     sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_SETPOSE);
     str += buf;
 
-    str += "//   Add selected mesh as pose target; returns poseTargetIndex\n";
+    str += "//   Add pose target using selected mesh; returns poseTargetIndex\n";
     sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_SETPOSETARGET);
     str += buf;
 
@@ -262,6 +262,8 @@ MStatus PoseSpaceCommand::getJointsFromSelList(MObjectArray& joints)
 
     if (joints.length() == 0)
         MReturnFailure(ErrorStr::PSDJointsNotProvided);
+
+    return MS::kSuccess;
 }
 
 
@@ -362,7 +364,7 @@ MStatus PoseSpaceCommand::setPose()
         // Check if given poseIndex exists
         bool found = false;
         for( int i=0; i < pPose.numElements(); ++i )
-            if (_poseIndex == pPose.logicalIndex())
+            if (_poseIndex == pPose[i].logicalIndex())
             {
                 found = true;
                 break;
@@ -372,6 +374,8 @@ MStatus PoseSpaceCommand::setPose()
     }
     pPose = pPose.elementByLogicalIndex(_poseIndex);
 
+
+
     // Add joints to pose
     for (int i = 0; i < joints.length(); ++i)
     {
@@ -379,14 +383,29 @@ MStatus PoseSpaceCommand::setPose()
 
         // Check if joint index exists in deformer
         int jtIndex = -1;
+
         MPlug rotPlug = fnJnt.findPlug("rotate");
         MPlugArray conns;
         rotPlug.connectedTo(conns, 0, 1);
+
         for (int j = 0; j < conns.length(); ++j)
         {
-            if (conns[j].node() == fnDeformer.object() && conns[j] == PoseSpaceDeformer::aJoint)
+            MPlug conn = conns[j];
+
+            if (conn.node().hasFn(MFn::kUnitConversion))
             {
-                jtIndex = conns[j].logicalIndex();
+                MFnDependencyNode fnDep(conns[j].node());
+                MPlug outputPlug = fnDep.findPlug("output");
+                
+                MPlugArray conns;
+                outputPlug.connectedTo(conns, 0, 1);
+                conn = conns[0];
+            }
+
+            if (conn.node() == fnDeformer.object() && conn == PoseSpaceDeformer::aJointRotation)
+            {
+                jtIndex = conn.parent().logicalIndex();
+                break;
             }
         }
 
@@ -585,7 +604,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
         // Check if given poseIndex exists
         bool found = false;
         for( int i=0; i < pPose.numElements(); ++i )
-            if (_poseIndex == pPose.logicalIndex())
+            if (_poseIndex == pPose[i].logicalIndex())
             {
                 found = true;
                 break;
@@ -608,7 +627,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
         // Check if given poseIndex exists
         bool found = false;
         for( int i=0; i < pPoseTarget.numElements(); ++i )
-            if (_targetIndex == pPoseTarget.logicalIndex())
+            if (_targetIndex == pPoseTarget[i].logicalIndex())
             {
                 found = true;
                 break;

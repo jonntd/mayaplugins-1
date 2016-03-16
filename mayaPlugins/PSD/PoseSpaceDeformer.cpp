@@ -131,6 +131,8 @@ MStatus PoseSpaceDeformer::setDependentsDirty(  const MPlug& plugBeingDirtied,
         plugBeingDirtied == aPoseJointRotation ||
         plugBeingDirtied == aPoseJointFallOff )
         _posesDirty = true;
+
+    return MS::kSuccess;
 }
 
 MStatus PoseSpaceDeformer::deform(  MDataBlock&     block, 
@@ -158,6 +160,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         _posesDirty = false;
 
         // Collect all pose joint rotations values
+        _poses.clear();
         MArrayDataHandle arrHnd = block.inputArrayValue(aPose);
         for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
         {
@@ -175,7 +178,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
                 handle = jtArrHnd.inputValue();
                 handle = handle.child(aPoseJointFallOff);
-                double fallOff = handle.asFloat();
+                float fallOff = handle.asFloat();
 
                 jtMap[jtArrHnd.elementIndex()] = PoseJoint(rot, fallOff);
 
@@ -184,7 +187,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     MString msg = "Collect posesJts: pose: ";
                     msg += i;
                     msg += ", joint: ";
-                    msg += j;
+                    msg += jtArrHnd.elementIndex();
                     msg += ", rot: ";
                     msg += MVector2Str(rot);
                     msg += ", fallOff: ";
@@ -197,6 +200,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         }
 
         // pose-2-pose weights: For each pose, check how far is its poseJointRotations are from other poses
+        _pose2PoseWeights.clear();
         _pose2PoseWeights.resize(_poses.size());
         for (int i = 0; i < _poses.size(); ++i)
         {
@@ -218,6 +222,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             // Other poses
             for (int j = i+1; j < _poses.size(); ++j)
             {
+                _pose2PoseWeights[j].setLength(_poses.size());
+
                 if (debug)
                 {
                     MString msg = "Pose2PoseWts: posei: ";
@@ -234,6 +240,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     // If joint in pose[i] matches pose[j], calc distance, else return distance as -1
                     int jtIdx = iter1->first;
                     PoseJointMap::const_iterator iter2 = _poses[j].find(jtIdx);
+
                     if (iter2 == _poses[j].end())
                     {
                         weightij = -1;
@@ -251,7 +258,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                         float fallOff2 = iter2->second.fallOff;
 
                         // Distance between poseJoint
-                        float dist = (rot1 - rot2).length();
+                        double dist = (rot1 - rot2).length();
 
                         if (debug)
                         {
@@ -272,7 +279,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                             msg += ", dist: ";
                             msg += dist;
                             MDebugPrint(msg);
-                        }                        
+                        }
 
                         // Accumulate pose weight using weight of this joint (dist/fallOff)
                         if (dist < fallOff2)
@@ -284,7 +291,6 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                             weightji *= dist / fallOff1;
                         else
                             weightji = 0;
-
                     }
                 }
 

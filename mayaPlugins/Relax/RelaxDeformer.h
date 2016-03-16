@@ -26,7 +26,8 @@ private:
 
     static MObject          aDebug;
 
-
+    static MObject          aIterations;
+    static MObject          aAmount;
 };
 
 #endif

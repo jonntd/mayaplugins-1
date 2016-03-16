@@ -12,6 +12,8 @@ MTypeId RelaxDeformer::id( PluginIDs::RelaxDeformer );
 const char * RelaxDeformer::name( PluginNames::RelaxDeformer );
 
 MObject RelaxDeformer::aDebug;
+MObject RelaxDeformer::aIterations;
+MObject RelaxDeformer::aAmount;
 
 
 void* RelaxDeformer::creator()
@@ -28,6 +30,17 @@ MStatus RelaxDeformer::initialize()
     aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean);
     addAttribute(aDebug);
 
+    aIterations = nAttr.create("iterations", "itr", MFnNumericData::kInt, 1);
+    nAttr.setChannelBox(true);
+    addAttribute(aIterations);
+
+    aAmount = nAttr.create("amount", "amt", MFnNumericData::kFloat, 1);
+    nAttr.setChannelBox(true);
+    addAttribute(aAmount);
+
+    attributeAffects(aIterations, outputGeom);
+    attributeAffects(aAmount, outputGeom);
+
     return MStatus::kSuccess;
 
 }
@@ -38,17 +51,6 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
                                 const MMatrix&  world, 
                                 unsigned int    geomIndex )
 {
-    MStatus stat;
-    MString msg;
-    MDataHandle handle;
-
-    handle = block.inputValue(aDebug);
-    bool debug = handle.asBool();
-
-    handle = block.inputValue(envelope);
-    float env = handle.asFloat();
-
-
     return MStatus::kSuccess;
 }
 
