@@ -7,7 +7,7 @@ PLUGIN_NAME = plugin.so
 
 
 CC    			= gcc
-CFLAGS        	= -I. -I$(MAYA_LOCATION)/include -D_BOOL -DREQUIRE_IOSTREAM -fPIC
+CFLAGS        	= -I. -I$(MAYA_LOCATION)/include -D_BOOL -DREQUIRE_IOSTREAM -fPIC -D_DEBUG
 LDFLAGS			= -shared -L$(MAYA_LOCATION)/lib -lm -lOpenMaya -lOpenMayaUI -lFoundation -lOpenMayaAnim -lm
 
 

@@ -11,7 +11,10 @@
 MTypeId RelaxDeformer::id( PluginIDs::RelaxDeformer );
 const char * RelaxDeformer::name( PluginNames::RelaxDeformer );
 
+#ifdef _DEBUG
 MObject RelaxDeformer::aDebug;
+#endif
+
 MObject RelaxDeformer::aIterations;
 MObject RelaxDeformer::aAmount;
 
@@ -27,10 +30,13 @@ MStatus RelaxDeformer::initialize()
 
     MFnNumericAttribute nAttr;
 
+#ifdef _DEBUG
     aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean);
     addAttribute(aDebug);
+#endif
 
     aIterations = nAttr.create("iterations", "itr", MFnNumericData::kInt, 1);
+    nAttr.setMin(1);
     nAttr.setChannelBox(true);
     addAttribute(aIterations);
 
@@ -51,6 +57,15 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
                                 const MMatrix&  world, 
                                 unsigned int    geomIndex )
 {
+    MStatus stat;
+    MString msg;
+    MDataHandle handle;
+
+#ifdef _DEBUG
+    handle = block.inputValue(aDebug);
+    bool debug = handle.asBool();
+#endif
+
     return MStatus::kSuccess;
 }
 

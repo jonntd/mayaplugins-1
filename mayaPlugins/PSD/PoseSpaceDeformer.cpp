@@ -11,6 +11,7 @@
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnTypedAttribute.h>
 #include <maya/MFnMatrixAttribute.h>
+#include <maya/MFnUnitAttribute.h>
 #include <maya/MFnIntArrayData.h>
 #include <maya/MFnVectorArrayData.h>
 #include <maya/MFnMatrixData.h>
@@ -27,16 +28,23 @@
 MTypeId PoseSpaceDeformer::id( PluginIDs::PoseSpaceDeformer );
 const char * PoseSpaceDeformer::name( PluginNames::PoseSpaceDeformer );
 
+#ifdef _DEBUG
 MObject PoseSpaceDeformer::aDebug;
+#endif
 
 MObject PoseSpaceDeformer::aJoint;
-MObject PoseSpaceDeformer::aJointRotation;
-MObject PoseSpaceDeformer::aJointMatrix;
+MObject PoseSpaceDeformer::aJointRot;
+MObject PoseSpaceDeformer::aJointRotX;
+MObject PoseSpaceDeformer::aJointRotY;
+MObject PoseSpaceDeformer::aJointRotZ;
 
 MObject PoseSpaceDeformer::aPose;
 MObject PoseSpaceDeformer::aPoseName;
 MObject PoseSpaceDeformer::aPoseJoint;
-MObject PoseSpaceDeformer::aPoseJointRotation;
+MObject PoseSpaceDeformer::aPoseJointRot;
+MObject PoseSpaceDeformer::aPoseJointRotX;
+MObject PoseSpaceDeformer::aPoseJointRotY;
+MObject PoseSpaceDeformer::aPoseJointRotZ;
 MObject PoseSpaceDeformer::aPoseJointFallOff;
 MObject PoseSpaceDeformer::aPoseTarget;
 MObject PoseSpaceDeformer::aPoseEnvelope;
@@ -45,6 +53,7 @@ MObject PoseSpaceDeformer::aPoseDelta;
 
 MObject PoseSpaceDeformer::aSkinClusterWeightList;
 MObject PoseSpaceDeformer::aSkinClusterWeights;
+
 
 PoseSpaceDeformer::PoseSpaceDeformer()
 {
@@ -64,26 +73,34 @@ MStatus PoseSpaceDeformer::initialize()
     MFnCompoundAttribute cAttr;
     MFnTypedAttribute tAttr;
     MFnMatrixAttribute mAttr;
+    MFnUnitAttribute uAttr;
 
+
+#ifdef _DEBUG
     aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean, true);
     addAttribute(aDebug);
+#endif
 
-    aJointRotation = nAttr.create("jointRotation", "jr", MFnNumericData::k3Double);
-    aJointMatrix = mAttr.create("jointMatrix", "jm");
+    aJointRotX = uAttr.create("jointRotX", "jrx", MFnUnitAttribute::kAngle);
+    aJointRotY = uAttr.create("jointRotY", "jry", MFnUnitAttribute::kAngle);
+    aJointRotZ = uAttr.create("jointRotZ", "jrz", MFnUnitAttribute::kAngle);
+    aJointRot = nAttr.create("jointRot", "jr", aJointRotX, aJointRotY, aJointRotZ);
 
     aJoint = cAttr.create("joint", "j");
     cAttr.setArray(true);
-    cAttr.addChild(aJointRotation);
-    cAttr.addChild(aJointMatrix);
+    cAttr.addChild(aJointRot);
     addAttribute(aJoint);
 
     aPoseName = tAttr.create("poseName", "pn", MFnData::kString);
 
-    aPoseJointRotation = nAttr.create("poseJointRotation", "pjr", MFnNumericData::k3Double);
+    aPoseJointRotX = uAttr.create("poseJointRotX", "pjrx", MFnUnitAttribute::kAngle);
+    aPoseJointRotY = uAttr.create("poseJointRotY", "pjry", MFnUnitAttribute::kAngle);
+    aPoseJointRotZ = uAttr.create("poseJointRotZ", "pjrz", MFnUnitAttribute::kAngle);
+    aPoseJointRot = nAttr.create("poseJointRot", "pjr", aPoseJointRotX, aPoseJointRotY, aPoseJointRotZ);
     aPoseJointFallOff = nAttr.create("poseJointFallOff", "pjf", MFnNumericData::kFloat, 90.f);
     aPoseJoint = cAttr.create("poseJoint", "pj");
     cAttr.setArray(true);
-    cAttr.addChild(aPoseJointRotation);
+    cAttr.addChild(aPoseJointRot);
     cAttr.addChild(aPoseJointFallOff);
 
     aPoseEnvelope = nAttr.create("poseEnvelope", "pte", MFnNumericData::kFloat, 1.f);
@@ -124,11 +141,13 @@ MStatus PoseSpaceDeformer::initialize()
 MStatus PoseSpaceDeformer::setDependentsDirty(  const MPlug& plugBeingDirtied, 
                                                 MPlugArray& affectedPlugs )
 {
+#ifdef _DEBUG
     MDebugPrint(plugBeingDirtied.name());
+#endif
 
     if (plugBeingDirtied == aPose ||
         plugBeingDirtied == aPoseJoint ||
-        plugBeingDirtied == aPoseJointRotation ||
+        plugBeingDirtied == aPoseJointRot ||
         plugBeingDirtied == aPoseJointFallOff )
         _posesDirty = true;
 
@@ -145,8 +164,10 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     MDataHandle handle;
     MObject obj;
 
+#ifdef _DEBUG
     handle = block.inputValue(aDebug);
     bool debug = handle.asBool();
+#endif
 
     handle = block.inputValue(envelope);
     float env = handle.asFloat();
@@ -172,7 +193,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             for (int j = 0; j < jtArrHnd.elementCount(); ++j, jtArrHnd.next())
             {
                 handle = jtArrHnd.inputValue();
-                handle = handle.child(aPoseJointRotation);
+                handle = handle.child(aPoseJointRot);
                 double3& data = handle.asDouble3();
                 MVector rot(data[0], data[1], data[2]);
 
@@ -182,6 +203,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
                 jtMap[jtArrHnd.elementIndex()] = PoseJoint(rot, fallOff);
 
+#ifdef _DEBUG
                 if (debug)
                 {
                     MString msg = "Collect posesJts: pose: ";
@@ -194,6 +216,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     msg += fallOff;
                     MDebugPrint(msg);
                 }
+#endif
             }
 
             _poses.push_back(jtMap);
@@ -209,12 +232,14 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             // Same pose
             _pose2PoseWeights[i][i] = 1;
 
+#ifdef _DEBUG
             if (debug)
             {
                 MString msg = "Pose2PoseWts: posei: ";
                 msg += i;
                 MDebugPrint(msg);
             }
+#endif
 
             if (i+1 == _poses.size())
                 break;
@@ -224,6 +249,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             {
                 _pose2PoseWeights[j].setLength(_poses.size());
 
+#ifdef _DEBUG
                 if (debug)
                 {
                     MString msg = "Pose2PoseWts: posei: ";
@@ -232,7 +258,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     msg += j;
                     MDebugPrint(msg);
                 }
-
+#endif
                 double weightij = 1;
                 double weightji = 1;
                 for (PoseJointMap::const_iterator iter1 = _poses[i].begin(); iter1 != _poses[i].end(); ++iter1)
@@ -260,6 +286,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                         // Distance between poseJoint
                         double dist = (rot1 - rot2).length();
 
+#ifdef _DEBUG
                         if (debug)
                         {
                             MString msg = "Pose2PoseWts: posei: ";
@@ -280,7 +307,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                             msg += dist;
                             MDebugPrint(msg);
                         }
-
+#endif
                         // Accumulate pose weight using weight of this joint (dist/fallOff)
                         if (dist < fallOff2)
                             weightij *= dist / fallOff2;
@@ -301,6 +328,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     weightji = 1;
                 }
 
+#ifdef _DEBUG
                 if (debug)
                 {
                     MString msg = "Pose2PoseWts: posei: ";
@@ -313,7 +341,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     msg += weightji;
                     MDebugPrint(msg);
                 }
-
+#endif
                 _pose2PoseWeights[i][j] = weightij;
                 _pose2PoseWeights[j][i] = weightji;
             }
@@ -331,18 +359,20 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         int jtIdx = jtArrHnd.elementIndex();
         MDataHandle jtHnd = jtArrHnd.inputValue();
 
-        handle = jtHnd.child(aJointRotation);
+        handle = jtHnd.child(aJointRot);
         double3& data = handle.asDouble3();
         MVector rot(DEG2RAD(data[0]), DEG2RAD(data[1]), DEG2RAD(data[2]));
 
         currJointRot[jtIdx] = rot;
 
+#ifdef _DEBUG
         if (debug)
         {
             MString msg = "CurJoints: jtIdx: ";
             msg += jtIdx;
             MDebugPrint(msg);
         }
+#endif
     }
 
 
@@ -359,6 +389,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             // TODO: Get current joint's rotation and get distance between that and poseJt.rotation and fallOff dist
             double dist = (currJointRot[jtIdx] - poseJt.rotation).length();
 
+#ifdef _DEBUG
             if (debug)
             {
                 MString msg = "Pose2CurrJointWts: pose: ";
@@ -379,10 +410,12 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                 msg += poseJt.fallOff;
                 MDebugPrint(msg);
             }
-
+#endif
             if (dist < poseJt.fallOff)
             {
                 weight *= 1 - (dist / poseJt.fallOff);
+
+#ifdef _DEBUG                
                 if (debug)
                 {
                     MString msg = "Pose2CurrJointWts: pose: ";
@@ -393,6 +426,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     msg += weight;
                     MDebugPrint(msg);
                 }
+#endif
             }
             else
             {
@@ -401,6 +435,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             }
         }
 
+#ifdef _DEBUG
         if (debug)
         {
             MString msg = "Pose2CurrJointWts: pose: ";
@@ -409,6 +444,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             msg += weight;
             MDebugPrint(msg);
         }
+#endif
 
         pose2CurrJointWeights[i] = weight;
     }
@@ -423,6 +459,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         {
             double wt = _pose2PoseWeights[i][j] * pose2CurrJointWeights[j];
 
+#ifdef _DEBUG
             if (debug)
             {
                 MString msg = "FinalPoseWts: posei: ";
@@ -433,10 +470,11 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                 msg += wt;
                 MDebugPrint(msg);
             }
-
+#endif
             weight += wt;
         }
 
+#ifdef _DEBUG
         if (debug)
         {
             MString msg = "FinalPoseWts: posei: ";
@@ -445,7 +483,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             msg += weight;
             MDebugPrint(msg);
         }
-
+#endif
         poseWeights[i] = weight;
     }
 

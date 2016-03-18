@@ -202,10 +202,11 @@ MStatus PoseSpaceCommand::getMeshFromSelList(MObject& obj)
         stat = selList.getDependNode(i, obj);
         MFnDependencyNode fnDep(obj, &stat);
 
+#ifdef _DEBUG
         MString msg = "getMeshFromSelList: ";
         msg += fnDep.name();
         MDebugPrint(msg);
-    
+#endif
         if (obj.hasFn(MFn::kMesh))
         {
             return MS::kSuccess;
@@ -402,16 +403,18 @@ MStatus PoseSpaceCommand::setPose()
                 conn = conns[0];
             }
 
-            if (conn.node() == fnDeformer.object() && conn == PoseSpaceDeformer::aJointRotation)
+            if (conn.node() == fnDeformer.object() && conn == PoseSpaceDeformer::aJointRot)
             {
                 jtIndex = conn.parent().logicalIndex();
                 break;
             }
         }
 
+#ifdef _DEBUG
         msg = "setPose: jtIdx; ";
         msg += jtIndex;
         MDebugPrint(msg);
+#endif
 
         // Connect joint
         if (jtIndex < 0)
@@ -424,14 +427,15 @@ MStatus PoseSpaceCommand::setPose()
                 jtIndex = 0;
 
             pjtPlug = pjtPlug.elementByLogicalIndex(jtIndex);
-            MPlug pjtRotPlug = pjtPlug.child(PoseSpaceDeformer::aJointRotation);
+            MPlug pjtRotPlug = pjtPlug.child(PoseSpaceDeformer::aJointRot);
 
+#ifdef _DEBUG
             msg = "setPose: connect; ";
             msg += rotPlug.name();
             msg += ", ";
             msg += pjtRotPlug.name();
             MDebugPrint(msg);
-
+#endif
             MDGModifier dgMod;
             stat = dgMod.connect(rotPlug, pjtRotPlug);
             stat = dgMod.doIt();
@@ -443,7 +447,7 @@ MStatus PoseSpaceCommand::setPose()
         // Set poseJoint
         MPlug pPoseJoint = pPose.child(PoseSpaceDeformer::aPoseJoint);
         pPoseJoint = pPoseJoint.elementByLogicalIndex(jtIndex);
-        MPlug pRotation = pPoseJoint.child(PoseSpaceDeformer::aPoseJointRotation);
+        MPlug pRotation = pPoseJoint.child(PoseSpaceDeformer::aPoseJointRot);
 
         // Set joint rotation data
         MEulerRotation rot;

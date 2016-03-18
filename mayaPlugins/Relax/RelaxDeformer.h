@@ -24,8 +24,10 @@ public:
 
 private:
 
+#ifdef _DEBUG
     static MObject          aDebug;
-
+#endif
+    
     static MObject          aIterations;
     static MObject          aAmount;
 };

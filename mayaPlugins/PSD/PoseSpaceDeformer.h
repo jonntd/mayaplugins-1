@@ -37,16 +37,24 @@ public:
     static  MTypeId         id;  
     static  const char*     name;
 
+#ifdef _DEBUG
     static MObject          aDebug;
+#endif
 
     static MObject          aJoint;
-    static MObject          aJointRotation;
-    static MObject          aJointMatrix;
+    static MObject          aJointRot;
+    static MObject          aJointRotX;
+    static MObject          aJointRotY;
+    static MObject          aJointRotZ;
+
 
     static MObject          aPose;
     static MObject          aPoseName;
     static MObject          aPoseJoint;
-    static MObject          aPoseJointRotation;
+    static MObject          aPoseJointRot;
+    static MObject          aPoseJointRotX;
+    static MObject          aPoseJointRotY;
+    static MObject          aPoseJointRotZ;
     static MObject          aPoseJointFallOff;
     static MObject          aPoseTarget;
     static MObject          aPoseEnvelope;
@@ -55,6 +63,9 @@ public:
 
     static MObject          aSkinClusterWeightList;
     static MObject          aSkinClusterWeights;
+
+
+
 
 private:
 

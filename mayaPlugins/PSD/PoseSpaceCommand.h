@@ -27,7 +27,6 @@ public:
 
 private:
 
-
     MStatus             parseArgs( const MArgList& args );
 
     MStatus             getMeshFromSelList(MObject& obj);
