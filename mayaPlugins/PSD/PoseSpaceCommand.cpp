@@ -392,17 +392,6 @@ MStatus PoseSpaceCommand::setPose()
         for (int j = 0; j < conns.length(); ++j)
         {
             MPlug conn = conns[j];
-
-            if (conn.node().hasFn(MFn::kUnitConversion))
-            {
-                MFnDependencyNode fnDep(conns[j].node());
-                MPlug outputPlug = fnDep.findPlug("output");
-                
-                MPlugArray conns;
-                outputPlug.connectedTo(conns, 0, 1);
-                conn = conns[0];
-            }
-
             if (conn.node() == fnDeformer.object() && conn == PoseSpaceDeformer::aJointRot)
             {
                 jtIndex = conn.parent().logicalIndex();

@@ -7,6 +7,7 @@
 #include <maya/MGlobal.h>
 #include <maya/MPoint.h>
 #include <maya/MMatrix.h>
+#include <maya/MEulerRotation.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -20,9 +21,6 @@
 #include <maya/MItDependencyGraph.h>
 #include <maya/MItGeometry.h>
 #include <maya/MVectorArray.h>
-
-#define DEG2RAD(angle)     angle * 3.141592653589793 / 180.0
-#define RAD2DEG(angle)     angle * 180.0 / 3.141592653589793
 
 
 MTypeId PoseSpaceDeformer::id( PluginIDs::PoseSpaceDeformer );
@@ -178,7 +176,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     // If poses are dirty, recalculate pose2Pose weights
     if (_posesDirty)
     {
-        _posesDirty = false;
+        //_posesDirty = false;
 
         // Collect all pose joint rotations values
         _poses.clear();
@@ -195,7 +193,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                 handle = jtArrHnd.inputValue();
                 handle = handle.child(aPoseJointRot);
                 double3& data = handle.asDouble3();
-                MVector rot(data[0], data[1], data[2]);
+                MVector rot(RAD2DEG(data[0]), RAD2DEG(data[1]), RAD2DEG(data[2]));
 
                 handle = jtArrHnd.inputValue();
                 handle = handle.child(aPoseJointFallOff);
@@ -361,7 +359,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
         handle = jtHnd.child(aJointRot);
         double3& data = handle.asDouble3();
-        MVector rot(DEG2RAD(data[0]), DEG2RAD(data[1]), DEG2RAD(data[2]));
+        MVector rot(RAD2DEG(data[0]), RAD2DEG(data[1]), RAD2DEG(data[2]));
 
         currJointRot[jtIdx] = rot;
 

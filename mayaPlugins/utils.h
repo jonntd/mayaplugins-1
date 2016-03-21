@@ -3,9 +3,7 @@
 
 #include <limits>
 
-
 typedef const char* const conststr;
-
 
 namespace PluginIDs
 {
@@ -35,8 +33,10 @@ namespace ErrorStr
     conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index";
 };
 
+#define DEG2RAD(angle)     angle * 3.141592653589793 / 180.0
+#define RAD2DEG(angle)     angle * 180.0 / 3.141592653589793
 
-#define FLOAT_TOLERANCE        0.0000001f //std::numeric_limits<float>::epsilon
+#define FLOAT_TOLERANCE    0.0000001f //std::numeric_limits<float>::epsilon
 
 #define FUNCLINE      (MString(__FUNCTION__) + " (" + __FILE__ + " :" + __LINE__ + ")").asChar()
 
