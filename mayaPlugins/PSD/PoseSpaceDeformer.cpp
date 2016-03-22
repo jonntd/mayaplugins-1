@@ -3,6 +3,7 @@
 
 #include <iostream>
 
+#include "lapacke.h"
 
 #include <maya/MGlobal.h>
 #include <maya/MPoint.h>
@@ -176,7 +177,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     // If poses are dirty, recalculate pose2Pose weights
     if (_posesDirty)
     {
-        //_posesDirty = false;
+        _posesDirty = false;
 
         // Collect all pose joint rotations values
         _poses.clear();
@@ -319,7 +320,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     }
                 }
 
-                // If distance cannot be found between poses because of differnt poseJoint, weight them 1
+                // If distance cannot be found between poses because of different poseJoint, weight them 1
                 if (weightij < 0)
                 {
                     weightij = 1;
@@ -345,7 +346,83 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             }
         }
 
-        // TODO : Re-weight pose2PoseWeights using Scattered Data Interpolation (solve Ax = B)
+#ifdef _DEBUG
+        if (debug)
+        {
+            char buf[1024] = "  ";
+            MDebugPrint("Pose2PoseWts:================");
+            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+                sprintf(buf, "%s%10d", buf, i);
+            MDebugPrint(buf);
+            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+            {
+                sprintf(buf, "%2d", i);
+                for (int j = 0; j < _pose2PoseWeights.size(); ++j)
+                    sprintf(buf, "%s%6.3f", buf, _pose2PoseWeights[i][j]);
+                MDebugPrint(buf);
+            }
+            MDebugPrint("=============================");
+        }
+#endif
+
+        // Re-weight pose2PoseWeights using Scattered Data Interpolation (solve Ax = B)
+        {
+            int n = _pose2PoseWeights.size();
+            int nrhs = _pose2PoseWeights.size();
+            int lda = n;
+            int ldb = nrhs;
+            lapack_int *ipiv = new lapack_int[N];
+            double *a = new double[lda*n];
+            double *b = new double[ldb*n];
+
+            for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j)
+                {
+                    a[i*n + j] = _pose2PoseWeights[i][j];
+                    b[i*n + j] = i == j;
+                }
+
+            int info = LAPACKE_dgesv(LAPACK_ROW_MAJOR, n, nrhs, a, lda, ipiv, b, ldb);
+
+            // Check for the exact singularity
+            if (info > 0)
+            {
+                delete[] ipiv;
+                delete[] a;
+                delete[] b;
+                msg = "No 2 or more poses can have same set of joints and joint values. Failed to calculate pose weights";
+                MReturnFailure(msg);
+            }
+
+            for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j)
+                {
+                    _pose2PoseWeights[i][j] = b[i*n + j];
+                }
+
+            delete[] ipiv;
+            delete[] a;
+            delete[] b;
+        }
+
+#ifdef _DEBUG
+        if (debug)
+        {
+            char buf[1024] = "  ";
+            MDebugPrint("Pose2PoseWts:================");
+            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+                sprintf(buf, "%s%10d", buf, i);
+            MDebugPrint(buf);
+            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+            {
+                sprintf(buf, "%2d", i);
+                for (int j = 0; j < _pose2PoseWeights.size(); ++j)
+                    sprintf(buf, "%s%6.3f", buf, _pose2PoseWeights[i][j]);
+                MDebugPrint(buf);
+            }
+            MDebugPrint("=============================");
+        }
+#endif
     }
 
 
@@ -455,7 +532,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         double weight = 0;
         for (int j = 0; j < _poses.size(); ++j)
         {
-            double wt = _pose2PoseWeights[i][j] * pose2CurrJointWeights[j];
+            double wt = pose2CurrJointWeights[j] * _pose2PoseWeights[j][i];
 
 #ifdef _DEBUG
             if (debug)
