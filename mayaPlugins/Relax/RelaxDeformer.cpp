@@ -5,7 +5,8 @@
 
 #include <maya/MGlobal.h>
 #include <maya/MFnNumericAttribute.h>
-
+#include <maya/MFnMesh.h>
+#include <maya/MItMeshVertex.h>
 
 
 MTypeId RelaxDeformer::id( PluginIDs::RelaxDeformer );
@@ -65,6 +66,57 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
     handle = block.inputValue(aDebug);
     bool debug = handle.asBool();
 #endif
+
+    handle = block.inputValue(aIterations);
+    int iterations = handle.asInt();
+
+    handle = block.inputValue(aAmount);
+    float amount = handle.asFloat();
+
+    // Get all positions
+    MObject obj = inputShapeAtIndex(geomIndex);
+    MFnMesh fnMesh(obj);
+    MPointArray positions;
+    fnMesh.getPoints(positions);
+
+    // Get connected vertices
+    std::vector<MIntArray> connectedVertices;
+    MItMeshVertex itVtx(obj);
+    int prevIdx;
+    for (itVtx.reset(); !itVtx.isDone(); itVtx.next())
+        itVtx.getConnectedVertices(connectedVertices[i]);
+
+    // Find relax positions
+    MPointArray newPositions = positions;
+    for (int i = 0; i < iterations; ++i)
+    {
+        for (itVtx.reset(); !itVtx.isDone(); itVtx.next())
+        {
+            MPoint newPos;
+            MIntArray connectedVertices;
+            itVtx.getConnectedVertices(connectedVertices);
+            for (int j = 0; j < connectedVertices.length(); ++j)
+                newPos += positions[connectedVertices[j]];
+
+            int index = itVtx.index();
+            newPositions[index] = positions[index] + (newPos-positions[index]) * amount;
+        }
+
+        positions = newPositions;
+    }
+
+
+    // Set the final positions
+    for (itGeo.reset(); !itGeo.isDone(); itGeo.next())
+    {
+        int i = itGeo.index();
+
+        float wt = weightValue(block, geomIndex, i);
+
+        MPoint position = itGeo.position();
+        position += (newPositions[i] - position) * wt * env;
+        itGeo.setPosition(position);
+    }
 
     return MStatus::kSuccess;
 }

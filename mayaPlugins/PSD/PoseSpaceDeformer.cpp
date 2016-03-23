@@ -309,12 +309,12 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 #endif
                         // Accumulate pose weight using weight of this joint (dist/fallOff)
                         if (dist < fallOff2)
-                            weightij *= dist / fallOff2;
+                            weightij *= 1 - dist / fallOff2;
                         else
                             weightij = 0;
 
                         if (dist < fallOff1)
-                            weightji *= dist / fallOff1;
+                            weightji *= 1 - dist / fallOff1;
                         else
                             weightji = 0;
                     }
