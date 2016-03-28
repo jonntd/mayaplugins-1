@@ -4,6 +4,7 @@
 #include <maya/MPxDeformerNode.h> 
 #include <maya/MTypeId.h>
 #include <maya/MDataBlock.h>
+#include <maya/MItGeometry.h>
 
 class RelaxDeformer: public MPxDeformerNode
 {

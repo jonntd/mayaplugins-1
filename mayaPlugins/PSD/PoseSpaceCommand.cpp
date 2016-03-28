@@ -197,7 +197,7 @@ MStatus PoseSpaceCommand::getMeshFromSelList(MObject& obj)
     MSelectionList selList;
     MGlobal::getActiveSelectionList(selList);
 
-    for( int i=0; i < selList.length(); ++i )
+    for( unsigned i=0; i < selList.length(); ++i )
     {
         stat = selList.getDependNode(i, obj);
         MFnDependencyNode fnDep(obj, &stat);
@@ -232,7 +232,7 @@ MStatus PoseSpaceCommand::getDeformerFromSelList(MObject& obj)
 {
     MStatus stat;
 
-    for( int i=0; i < _selList.length(); ++i )
+    for( unsigned i=0; i < _selList.length(); ++i )
     {    
         stat = _selList.getDependNode(i, obj);
         MFnDependencyNode fnDep(obj, &stat);
@@ -251,7 +251,7 @@ MStatus PoseSpaceCommand::getJointsFromSelList(MObjectArray& joints)
 {
     MStatus stat;
 
-    for( int i=0; i < _selList.length(); ++i )
+    for( unsigned i=0; i < _selList.length(); ++i )
     {    
         MObject obj;
         stat = _selList.getDependNode(i, obj);
@@ -364,7 +364,7 @@ MStatus PoseSpaceCommand::setPose()
     {        
         // Check if given poseIndex exists
         bool found = false;
-        for( int i=0; i < pPose.numElements(); ++i )
+        for( unsigned i=0; i < pPose.numElements(); ++i )
             if (_poseIndex == pPose[i].logicalIndex())
             {
                 found = true;
@@ -378,7 +378,7 @@ MStatus PoseSpaceCommand::setPose()
 
 
     // Add joints to pose
-    for (int i = 0; i < joints.length(); ++i)
+    for (unsigned i = 0; i < joints.length(); ++i)
     {
         MFnTransform fnJnt(joints[i]);
 
@@ -389,7 +389,7 @@ MStatus PoseSpaceCommand::setPose()
         MPlugArray conns;
         rotPlug.connectedTo(conns, 0, 1);
 
-        for (int j = 0; j < conns.length(); ++j)
+        for (unsigned j = 0; j < conns.length(); ++j)
         {
             MPlug conn = conns[j];
             if (conn.node() == fnDeformer.object() && conn == PoseSpaceDeformer::aJointRot)
@@ -520,7 +520,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
 
         MFnMatrixData fnMatrix;
 
-        for( int i=0; i < jtMatPlug.numElements(); ++i )
+        for( unsigned i=0; i < jtMatPlug.numElements(); ++i )
         {
             if ( jtMatPlug[i].logicalIndex() != bindPlug[i].logicalIndex() )
             {
@@ -557,7 +557,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
     // Get components with delta (in bind space)
     MIntArray components;
     MVectorArray deltas;
-    for( int i=0; i < srcPositions.length(); ++i )
+    for( unsigned i=0; i < srcPositions.length(); ++i )
     {
         // Delta in skin space
         MVector delta = tgtPositions[i] - srcPositions[i];
@@ -567,7 +567,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
         // Find skinMatrix
         MMatrix skinMatrix;        
         MPlug wtsPlug = scWtsPlug[i].child(0);
-        for( int j=0; j < wtsPlug.numElements(); ++j )
+        for( unsigned j=0; j < wtsPlug.numElements(); ++j )
         {
             int jtIdx = wtsPlug[j].logicalIndex();
             MMatrix mat = wtsPlug[j].asDouble() * jtMatrices[jtIdx];
@@ -596,7 +596,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
     {        
         // Check if given poseIndex exists
         bool found = false;
-        for( int i=0; i < pPose.numElements(); ++i )
+        for( unsigned i=0; i < pPose.numElements(); ++i )
             if (_poseIndex == pPose[i].logicalIndex())
             {
                 found = true;
@@ -619,7 +619,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
     {        
         // Check if given poseIndex exists
         bool found = false;
-        for( int i=0; i < pPoseTarget.numElements(); ++i )
+        for( unsigned i=0; i < pPoseTarget.numElements(); ++i )
             if (_targetIndex == pPoseTarget[i].logicalIndex())
             {
                 found = true;

@@ -3,7 +3,13 @@
 
 #include <iostream>
 
-#include "lapacke.h"
+#ifdef USEMKL
+#include "mkl_types.h"
+#include "mkl_lapack.h"
+#elif USEEIGEN
+#include <Eigen/Dense>
+using namespace Eigen;
+#endif
 
 #include <maya/MGlobal.h>
 #include <maya/MPoint.h>
@@ -182,14 +188,14 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         // Collect all pose joint rotations values
         _poses.clear();
         MArrayDataHandle arrHnd = block.inputArrayValue(aPose);
-        for (int i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
+        for (unsigned i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
         {
             handle = arrHnd.inputValue();
             handle = handle.child(aPoseJoint);
             MArrayDataHandle jtArrHnd(handle);
 
             PoseJointMap jtMap;
-            for (int j = 0; j < jtArrHnd.elementCount(); ++j, jtArrHnd.next())
+            for (unsigned j = 0; j < jtArrHnd.elementCount(); ++j, jtArrHnd.next())
             {
                 handle = jtArrHnd.inputValue();
                 handle = handle.child(aPoseJointRot);
@@ -226,7 +232,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         _pose2PoseWeights.resize(_poses.size());
         for (int i = 0; i < _poses.size(); ++i)
         {
-            _pose2PoseWeights[i].setLength(_poses.size());
+            _pose2PoseWeights[i].setLength((unsigned)_poses.size());
 
             // Same pose
             _pose2PoseWeights[i][i] = 1;
@@ -246,7 +252,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             // Other poses
             for (int j = i+1; j < _poses.size(); ++j)
             {
-                _pose2PoseWeights[j].setLength(_poses.size());
+                _pose2PoseWeights[j].setLength((unsigned)_poses.size());
 
 #ifdef _DEBUG
                 if (debug)
@@ -367,22 +373,24 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
         // Re-weight pose2PoseWeights using Scattered Data Interpolation (solve Ax = B)
         {
-            int n = _pose2PoseWeights.size();
-            int nrhs = _pose2PoseWeights.size();
-            int lda = n;
-            int ldb = nrhs;
-            lapack_int *ipiv = new lapack_int[N];
+#ifdef USEMKL            
+            MKL_INT n = (MKL_INT)_pose2PoseWeights.size();
+            MKL_INT nrhs = (MKL_INT)_pose2PoseWeights.size();
+            MKL_INT lda = n;
+            MKL_INT ldb = nrhs;
+            MKL_INT *ipiv = new MKL_INT[n];
             double *a = new double[lda*n];
             double *b = new double[ldb*n];
 
-            for (int i = 0; i < n; ++i)
-                for (int j = 0; j < n; ++j)
+            for (MKL_INT i = 0; i < n; ++i)
+                for (MKL_INT j = 0; j < n; ++j)
                 {
                     a[i*n + j] = _pose2PoseWeights[i][j];
                     b[i*n + j] = i == j;
                 }
 
-            int info = LAPACKE_dgesv(LAPACK_ROW_MAJOR, n, nrhs, a, lda, ipiv, b, ldb);
+            MKL_INT info;
+            dgesv_(&n, &nrhs, a, &lda, ipiv, b, &ldb, &info);
 
             // Check for the exact singularity
             if (info > 0)
@@ -394,16 +402,37 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                 MReturnFailure(msg);
             }
 
-            for (int i = 0; i < n; ++i)
-                for (int j = 0; j < n; ++j)
-                {
+            for (MKL_INT i = 0; i < n; ++i)
+                for (MKL_INT j = 0; j < n; ++j)
                     _pose2PoseWeights[i][j] = b[i*n + j];
-                }
 
             delete[] ipiv;
             delete[] a;
             delete[] b;
+#elif USEEIGEN
+            unsigned n = (unsigned)_pose2PoseWeights.size();
+
+            MatrixXf a(n, n);
+            MatrixXf b(n, n);
+            for (unsigned i = 0; i < n; ++i)
+                for (unsigned j = 0; j < n; ++j)
+                {
+                    a(i, j) = _pose2PoseWeights[i][j];
+                    b(i, j) = i == j;
+                }
+
+            std::cout << "Here is the matrix a:\n" << a << endl;
+            std::cout << "Here is the right hand side b:\n" << b << endl;
+            MatrixXf x = a.colPivHouseholderQr().solve(b);
+            std::cout << "The solution is:\n" << x << endl;
+
+            for (unsigned i = 0; i < n; ++i)
+                for (unsigned j = 0; j < n; ++j)
+                    _pose2PoseWeights[i][j] = x(i, j);
+#endif
         }
+
+
 
 #ifdef _DEBUG
         if (debug)
@@ -429,7 +458,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     // Get current joint rotations
     VectorMap currJointRot;
     MArrayDataHandle jtArrHnd = block.inputArrayValue(aJoint);
-    for (int i = 0; i < jtArrHnd.elementCount(); ++i, jtArrHnd.next())
+    for (unsigned i = 0; i < jtArrHnd.elementCount(); ++i, jtArrHnd.next())
     {
         int jtIdx = jtArrHnd.elementIndex();
         MDataHandle jtHnd = jtArrHnd.inputValue();
@@ -452,7 +481,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
 
     // pose-2-currJoints weights: For each pose, check how far is poseJointRotations are from current jointRotations
-    MDoubleArray pose2CurrJointWeights(_poses.size());
+    MDoubleArray pose2CurrJointWeights((unsigned)_poses.size());
     for (int i = 0; i < _poses.size(); ++i)
     {
         double weight = 1;
@@ -488,7 +517,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 #endif
             if (dist < poseJt.fallOff)
             {
-                weight *= 1 - (dist / poseJt.fallOff);
+                double jtWeight = 1 - (dist / poseJt.fallOff);
+                weight *= jtWeight;
 
 #ifdef _DEBUG                
                 if (debug)
@@ -497,6 +527,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     msg += i;
                     msg += ", joint: ";
                     msg += jtIdx;
+                    msg += ", jtWeight: ";
+                    msg += jtWeight;                    
                     msg += ", weight: ";
                     msg += weight;
                     MDebugPrint(msg);
@@ -526,7 +558,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
 
     // Calculate final weights for each pose, from pose-2-currJoint weights re-weighted by pose2PoseWeights
-    MDoubleArray poseWeights(_poses.size());
+    MDoubleArray poseWeights((unsigned)_poses.size());
     for (int i = 0; i < _poses.size(); ++i)
     {
         double weight = 0;
@@ -566,7 +598,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     // Get delta from weighted poses
     MArrayDataHandle poseArrHnd = block.inputArrayValue(aPose);
     VectorMap deltaMap;
-    for(int i = 0; i < poseArrHnd.elementCount(); ++i, poseArrHnd.next())
+    for(unsigned i = 0; i < poseArrHnd.elementCount(); ++i, poseArrHnd.next())
     {
         int poseIndex = poseArrHnd.elementIndex();
         MDataHandle poseHnd = poseArrHnd.inputValue();
@@ -575,7 +607,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             continue;
 
         MArrayDataHandle poseTargetArrHnd(poseHnd.child(aPoseTarget));
-        for(int j = 0; j < poseTargetArrHnd.elementCount(); ++j, poseTargetArrHnd.next())
+        for(unsigned j = 0; j < poseTargetArrHnd.elementCount(); ++j, poseTargetArrHnd.next())
         {
             MDataHandle poseTargetHnd = poseTargetArrHnd.inputValue();
 
@@ -594,7 +626,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             MFnVectorArrayData fnVectorArrData(obj);
             MVectorArray delta = fnVectorArrData.array();
 
-            for(int j = 0; j < components.length(); ++j)
+            for(unsigned j = 0; j < components.length(); ++j)
                 deltaMap[components[j]] += delta[j] * poseWt;
         }
     }
@@ -640,7 +672,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         MPlug jtMatPlug = fnSkinCluster.findPlug("matrix");
 
         MFnMatrixData fnMatrix;
-        for (int i = 0; i < jtMatPlug.numElements(); ++i)
+        for (unsigned i = 0; i < jtMatPlug.numElements(); ++i)
         {
             if (jtMatPlug[i].logicalIndex() != bindPlug[i].logicalIndex())
             {
@@ -661,7 +693,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     
     // Convert delta to skinSpace
     MArrayDataHandle wtListArrHnd = block.inputArrayValue(aSkinClusterWeightList);
-    for (int i = 0; i < wtListArrHnd.elementCount(); ++i, wtListArrHnd.next())
+    for (unsigned i = 0; i < wtListArrHnd.elementCount(); ++i, wtListArrHnd.next())
     {
         int c = wtListArrHnd.elementIndex();
 
@@ -673,7 +705,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         MArrayDataHandle wtArrHnd(handle);
 
         MMatrix bindToSkinMat;
-        for (int j = 0; j < wtArrHnd.elementCount(); ++j, wtArrHnd.next())
+        for (unsigned j = 0; j < wtArrHnd.elementCount(); ++j, wtArrHnd.next())
         {
             int jtIdx = wtArrHnd.elementIndex();
             double wt = wtArrHnd.inputValue().asDouble();

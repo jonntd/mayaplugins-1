@@ -2,11 +2,14 @@
 #include "utils.h"
 
 #include <iostream>
+#include <vector>
 
 #include <maya/MGlobal.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnMesh.h>
 #include <maya/MItMeshVertex.h>
+#include <maya/MPointArray.h>
+#include <maya/MIntArray.h>
 
 
 MTypeId RelaxDeformer::id( PluginIDs::RelaxDeformer );
@@ -67,24 +70,36 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
     bool debug = handle.asBool();
 #endif
 
+    handle = block.inputValue(envelope);
+    float env = handle.asFloat();
+    if (env < FLOAT_TOLERANCE)
+        return MS::kSuccess;
+
     handle = block.inputValue(aIterations);
     int iterations = handle.asInt();
 
     handle = block.inputValue(aAmount);
     float amount = handle.asFloat();
 
-    // Get all positions
-    MObject obj = inputShapeAtIndex(geomIndex);
+    // Get mesh fn
+    MArrayDataHandle arrHandle = block.inputArrayValue(input);
+    arrHandle.jumpToElement(geomIndex);
+    handle = arrHandle.inputValue().child(inputGeom);
+    if (handle.type() != MFnData::kMesh)
+        MReturnFailure(ErrorStr::RelaxInvalidInput);
+    MObject obj = handle.asMesh();
     MFnMesh fnMesh(obj);
+
+    // Get all positions
     MPointArray positions;
     fnMesh.getPoints(positions);
 
+
     // Get connected vertices
-    std::vector<MIntArray> connectedVertices;
     MItMeshVertex itVtx(obj);
-    int prevIdx;
+    std::vector<MIntArray> connectedVertices(itVtx.count());
     for (itVtx.reset(); !itVtx.isDone(); itVtx.next())
-        itVtx.getConnectedVertices(connectedVertices[i]);
+        itVtx.getConnectedVertices(connectedVertices[itVtx.index()]);
 
     // Find relax positions
     MPointArray newPositions = positions;
@@ -95,7 +110,7 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
             MPoint newPos;
             MIntArray connectedVertices;
             itVtx.getConnectedVertices(connectedVertices);
-            for (int j = 0; j < connectedVertices.length(); ++j)
+            for (unsigned j = 0; j < connectedVertices.length(); ++j)
                 newPos += positions[connectedVertices[j]];
 
             int index = itVtx.index();

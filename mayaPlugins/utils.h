@@ -31,6 +31,8 @@ namespace ErrorStr
     conststr PSDJointConnectionFailed           = "Couldnt connect joint %s to poseSpaceDeformer";
     conststr PSDInvalidPoseIndex                = "No pose found at given pose index";
     conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index";
+
+    conststr RelaxInvalidInput                  = "Relax deformer works on meshes only";
 };
 
 #define DEG2RAD(angle)     angle * 3.141592653589793 / 180.0
