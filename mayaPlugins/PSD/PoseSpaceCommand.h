@@ -35,6 +35,7 @@ private:
 
     MStatus             create();
     MStatus             setPose();
+    MStatus             deletePose();
     MStatus             setPoseTarget();
 
 

@@ -22,20 +22,22 @@
 #include <maya/MEulerRotation.h>
 
 
-#define SFLAG_HELP              "h"
-#define LFLAG_HELP              "help"
+#define SFLAG_HELP                      "h"
+#define LFLAG_HELP                      "help"
 
-#define SFLAG_CREATE            "c"
-#define LFLAG_CREATE            "create"
-#define SFLAG_ADDPOSE           "ap"
-#define LFLAG_ADDPOSE           "addPose"
-#define SFLAG_SETPOSE           "sp"
-#define LFLAG_SETPOSE           "setPose"
-#define SFLAG_SETPOSETARGET     "spt"
-#define LFLAG_SETPOSETARGET     "setPoseTarget"
+#define SFLAG_CREATE                    "c"
+#define LFLAG_CREATE                    "create"
+#define SFLAG_ADDPOSE                   "ap"
+#define LFLAG_ADDPOSE                   "addPose"
+#define SFLAG_SETPOSE                   "sp"
+#define LFLAG_SETPOSE                   "setPose"
+#define SFLAG_DELETEPOSE                "dp"
+#define LFLAG_DELETEPOSE                "deletePose"
+#define SFLAG_SETPOSETARGET             "spt"
+#define LFLAG_SETPOSETARGET             "setPoseTarget"
 
-#define SFLAG_TARGETINDEX       "ti"
-#define LFLAG_TARGETINDEX       "targetIndex"
+#define SFLAG_TARGETINDEX               "ti"
+#define LFLAG_TARGETINDEX               "targetIndex"
 
 
 #define MATCHARG(str, shortName, longName) \
@@ -72,12 +74,16 @@ void PoseSpaceCommand::usage()
     sprintf(buf, "//     %s -%s <psdNode> <joint list>\n", cmd, LFLAG_ADDPOSE);
     str += buf;
 
-    str += "//   Reset pose with given joints\n";
+    str += "//   Reset pose with/for given joints\n";
     sprintf(buf, "//     %s -%s <poseIndex> <psdNode> <joint list>\n", cmd, LFLAG_SETPOSE);
     str += buf;
 
     str += "//   Reset pose's joints with current rotations\n";
     sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_SETPOSE);
+    str += buf;
+
+    str += "//   Delete pose given poseIndex\n";
+    sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_DELETEPOSE);
     str += buf;
 
     str += "//   Add pose target using selected mesh; returns poseTargetIndex\n";
@@ -103,6 +109,7 @@ MSyntax PoseSpaceCommand::cmdSyntax()
     syntax.addFlag(SFLAG_CREATE, LFLAG_CREATE, MSyntax::kString);
     syntax.addFlag(SFLAG_ADDPOSE, LFLAG_ADDPOSE);
     syntax.addFlag(SFLAG_SETPOSE, LFLAG_SETPOSE, MSyntax::kUnsigned);
+    syntax.addFlag(SFLAG_DELETEPOSE, LFLAG_DELETEPOSE, MSyntax::kUnsigned);
     syntax.addFlag(SFLAG_SETPOSETARGET, LFLAG_SETPOSETARGET, MSyntax::kUnsigned);
     syntax.addFlag(SFLAG_TARGETINDEX, LFLAG_TARGETINDEX, MSyntax::kUnsigned);
 
@@ -147,6 +154,12 @@ MStatus PoseSpaceCommand::parseArgs( const MArgList& args )
 
         stat = argDB.getFlagArgument(LFLAG_SETPOSE, 0, _poseIndex);
     }
+    else if (argDB.isFlagSet(LFLAG_DELETEPOSE))
+    {
+        _operation = LFLAG_DELETEPOSE;
+
+        stat = argDB.getFlagArgument(LFLAG_DELETEPOSE, 0, _poseIndex);
+    }    
     else if (argDB.isFlagSet(LFLAG_SETPOSETARGET))
     {
         _operation = LFLAG_SETPOSETARGET;
@@ -181,6 +194,10 @@ MStatus PoseSpaceCommand::doIt( const MArgList& args )
     {
         stat = setPose();
     }
+    else if (_operation == LFLAG_DELETEPOSE)
+    {
+        stat = deletePose();
+    }    
     else if (_operation == LFLAG_SETPOSETARGET)
     {
         stat = setPoseTarget();
@@ -261,8 +278,6 @@ MStatus PoseSpaceCommand::getJointsFromSelList(MObjectArray& joints)
             joints.append(obj);
     }
 
-    if (joints.length() == 0)
-        MReturnFailure(ErrorStr::PSDJointsNotProvided);
 
     return MS::kSuccess;
 }
@@ -356,6 +371,10 @@ MStatus PoseSpaceCommand::setPose()
     MPlug pPose = fnDeformer.findPlug(PoseSpaceDeformer::aPose);
     if ( _poseIndex == -1 )
     {
+        // Make sure joints are provided
+        if (joints.length() == 0)
+            MReturnFailure(ErrorStr::PSDJointsNotProvided);
+
         _poseIndex = 0;
         if (pPose.numElements())
             _poseIndex = pPose[pPose.numElements()-1].logicalIndex() + 1;
@@ -373,7 +392,33 @@ MStatus PoseSpaceCommand::setPose()
         if (found == false)
             MReturnFailure(ErrorStr::PSDInvalidPoseIndex);
     }
+
     pPose = pPose.elementByLogicalIndex(_poseIndex);
+    MPlug pPoseJoint = pPose.child(PoseSpaceDeformer::aPoseJoint);
+    MPlug jointPlug = fnDeformer.findPlug(PoseSpaceDeformer::aJoint);
+
+
+    // Get current joint names
+    if (joints.length() == 0)
+    {
+        for(unsigned i=0; i < pPoseJoint.numElements(); ++i)
+        {
+            int jtIndex = pPoseJoint[i].logicalIndex();
+            MPlug jointPlugE = jointPlug.elementByLogicalIndex(jtIndex);
+            MPlug jtRotPlug = jointPlugE.child(PoseSpaceDeformer::aJointRot);
+
+            MPlugArray conns;
+            jtRotPlug.connectedTo(conns, 1, 0);
+            if (conns.length() != 1)
+            {
+                char buf[1024];
+                sprintf(buf, ErrorStr::PSDNoJointConn, jtIndex);
+                MReturnFailure(buf);
+            }
+
+            joints.append(conns[0].node());
+        }
+    }
 
 
 
@@ -408,25 +453,24 @@ MStatus PoseSpaceCommand::setPose()
         // Connect joint
         if (jtIndex < 0)
         {
-            MPlug pjtPlug = fnDeformer.findPlug(PoseSpaceDeformer::aJoint);
-            int numJts = pjtPlug.numElements();
+            int numJts = jointPlug.numElements();
             if (numJts)
-                jtIndex = pjtPlug[numJts - 1].logicalIndex() + 1;
+                jtIndex = jointPlug[numJts - 1].logicalIndex() + 1;
             else
                 jtIndex = 0;
 
-            pjtPlug = pjtPlug.elementByLogicalIndex(jtIndex);
-            MPlug pjtRotPlug = pjtPlug.child(PoseSpaceDeformer::aJointRot);
+            MPlug jointPlugE = jointPlug.elementByLogicalIndex(jtIndex);
+            MPlug jtRotPlug = jointPlugE.child(PoseSpaceDeformer::aJointRot);
 
 #ifdef _DEBUG
             msg = "setPose: connect; ";
             msg += rotPlug.name();
             msg += ", ";
-            msg += pjtRotPlug.name();
+            msg += jtRotPlug.name();
             MDebugPrint(msg);
 #endif
             MDGModifier dgMod;
-            stat = dgMod.connect(rotPlug, pjtRotPlug);
+            stat = dgMod.connect(rotPlug, jtRotPlug);
             stat = dgMod.doIt();
             char buf[1024];
             sprintf(buf, ErrorStr::PSDJointConnectionFailed, fnJnt.name().asChar());
@@ -447,10 +491,46 @@ MStatus PoseSpaceCommand::setPose()
         pRotation.setValue(obj);
     }
 
+
     setResult(_poseIndex);
 
     return MS::kSuccess;
 }
+
+MStatus PoseSpaceCommand::deletePose()
+{
+    MStatus stat;
+    MString msg;
+    MObject obj;
+
+    // Get deformer
+    stat = getDeformerFromSelList(obj);
+    MCheckStatus(stat, "");
+    MFnGeometryFilter fnDeformer(obj);
+
+    // Check if given poseIndex exists
+    MPlug pPose = fnDeformer.findPlug(PoseSpaceDeformer::aPose);
+    bool found = false;
+    for( unsigned i=0; i < pPose.numElements(); ++i )
+        if (_poseIndex == pPose[i].logicalIndex())
+        {
+            found = true;
+            break;
+        }
+    if (found == false)
+        MReturnFailure(ErrorStr::PSDInvalidPoseIndex);
+
+    pPose = pPose.elementByLogicalIndex(_poseIndex);
+
+    // Remove pose plug
+    MDGModifier dgMod;
+    stat = dgMod.removeMultiInstance(pPose, true);
+    stat = dgMod.doIt();
+    MCheckStatus(stat, ErrorStr::PSDPoseDeleteFailed);
+
+    return MS::kSuccess;
+}
+
 
 MStatus PoseSpaceCommand::setPoseTarget()
 {

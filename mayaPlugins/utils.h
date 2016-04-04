@@ -31,6 +31,8 @@ namespace ErrorStr
     conststr PSDJointConnectionFailed           = "Couldnt connect joint %s to poseSpaceDeformer";
     conststr PSDInvalidPoseIndex                = "No pose found at given pose index";
     conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index";
+    conststr PSDNoJointConn                     = "No joint is connected at index %d";
+    conststr PSDPoseDeleteFailed                = "Failed to delete pose";
 
     conststr RelaxInvalidInput                  = "Relax deformer works on meshes only";
 };
@@ -61,10 +63,10 @@ namespace ErrorStr
 
 #define MDebugPrint(message)                            \
     {                                                   \
-        char buf[1024];                                 \
-        sprintf(buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
-        MGlobal::displayInfo(buf);                      \
-        cerr << buf << "\n";                            \
+        char _buf[1024];                                \
+        sprintf(_buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
+        MGlobal::displayInfo(_buf);                     \
+        cerr << _buf << "\n";                           \
     }
 
 

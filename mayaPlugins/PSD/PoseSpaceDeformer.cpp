@@ -228,6 +228,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         }
 
         // pose-2-pose weights: For each pose, check how far is its poseJointRotations are from other poses
+        if (_poses.size() == 0)
+            return MS::kSuccess;
         _pose2PoseWeights.clear();
         _pose2PoseWeights.resize(_poses.size());
         for (int i = 0; i < _poses.size(); ++i)
@@ -355,16 +357,16 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 #ifdef _DEBUG
         if (debug)
         {
-            char buf[1024] = "  ";
+            char buf[1024] = "";
             MDebugPrint("Pose2PoseWts:================");
             for (int i = 0; i < _pose2PoseWeights.size(); ++i)
-                sprintf(buf, "%s%10d", buf, i);
+                sprintf(buf, "%s%8d", buf, i);
             MDebugPrint(buf);
             for (int i = 0; i < _pose2PoseWeights.size(); ++i)
             {
                 sprintf(buf, "%2d", i);
                 for (int j = 0; j < _pose2PoseWeights.size(); ++j)
-                    sprintf(buf, "%s%6.3f", buf, _pose2PoseWeights[i][j]);
+                    sprintf(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
                 MDebugPrint(buf);
             }
             MDebugPrint("=============================");
@@ -421,14 +423,16 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     b(i, j) = i == j;
                 }
 
-            std::cout << "Here is the matrix a:\n" << a << endl;
-            std::cout << "Here is the right hand side b:\n" << b << endl;
+            //std::cout << "Num poses:\n" << n << endl;
+            //std::cout << "Here is the matrix a:\n" << a << endl;
+            //std::cout << "Here is the right hand side b:\n" << b << endl;
             MatrixXf x = a.colPivHouseholderQr().solve(b);
-            std::cout << "The solution is:\n" << x << endl;
+            //std::cout << "The solution is:\n" << x << endl;
 
             for (unsigned i = 0; i < n; ++i)
                 for (unsigned j = 0; j < n; ++j)
                     _pose2PoseWeights[i][j] = x(i, j);
+
 #endif
         }
 
@@ -437,16 +441,16 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 #ifdef _DEBUG
         if (debug)
         {
-            char buf[1024] = "  ";
+            char buf[1024] = "";
             MDebugPrint("Pose2PoseWts:================");
             for (int i = 0; i < _pose2PoseWeights.size(); ++i)
-                sprintf(buf, "%s%10d", buf, i);
+                sprintf(buf, "%s%8d", buf, i);
             MDebugPrint(buf);
             for (int i = 0; i < _pose2PoseWeights.size(); ++i)
             {
                 sprintf(buf, "%2d", i);
                 for (int j = 0; j < _pose2PoseWeights.size(); ++j)
-                    sprintf(buf, "%s%6.3f", buf, _pose2PoseWeights[i][j]);
+                    sprintf(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
                 MDebugPrint(buf);
             }
             MDebugPrint("=============================");
@@ -454,6 +458,9 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 #endif
     }
 
+    // No poses, return
+    if (_poses.size() == 0)
+        return MS::kSuccess;
 
     // Get current joint rotations
     VectorMap currJointRot;

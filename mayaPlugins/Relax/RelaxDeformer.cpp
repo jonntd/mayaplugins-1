@@ -35,17 +35,19 @@ MStatus RelaxDeformer::initialize()
     MFnNumericAttribute nAttr;
 
 #ifdef _DEBUG
-    aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean);
+    aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean, 1);
     addAttribute(aDebug);
 #endif
 
     aIterations = nAttr.create("iterations", "itr", MFnNumericData::kInt, 1);
-    nAttr.setMin(1);
-    nAttr.setChannelBox(true);
+    nAttr.setMin(0);
+    nAttr.setKeyable(true);
     addAttribute(aIterations);
 
-    aAmount = nAttr.create("amount", "amt", MFnNumericData::kFloat, 1);
-    nAttr.setChannelBox(true);
+    aAmount = nAttr.create("amount", "amt", MFnNumericData::kFloat, 0.5);
+    nAttr.setMin(0);
+    nAttr.setMax(1);
+    nAttr.setKeyable(true);
     addAttribute(aAmount);
 
     attributeAffects(aIterations, outputGeom);
@@ -107,13 +109,17 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
     {
         for (itVtx.reset(); !itVtx.isDone(); itVtx.next())
         {
-            MPoint newPos;
+            int index = itVtx.index();
+
+            MPoint newPos = positions[index];
             MIntArray connectedVertices;
             itVtx.getConnectedVertices(connectedVertices);
+
             for (unsigned j = 0; j < connectedVertices.length(); ++j)
                 newPos += positions[connectedVertices[j]];
 
-            int index = itVtx.index();
+            newPos = newPos / (connectedVertices.length()+1);
+
             newPositions[index] = positions[index] + (newPos-positions[index]) * amount;
         }
 
@@ -132,6 +138,7 @@ MStatus RelaxDeformer::deform(  MDataBlock&     block,
         position += (newPositions[i] - position) * wt * env;
         itGeo.setPosition(position);
     }
+
 
     return MStatus::kSuccess;
 }

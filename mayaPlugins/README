@@ -1,5 +1,6 @@
 
-Building plugins:
+Building plugins
+================================================
 
     Linux
         In Makefile
@@ -9,10 +10,17 @@ Building plugins:
         This should produce <PLUGIN_NAME>.so
     Windows
         Set MAYA_LOCATION in environment variable
+        Set EIGEN_LOCATION in environment variable
         Open plugin.sln in visual studio
+        Open project properties (Alt+F7)
+            Select 'General', change 'Target Name' to rename <PLUGIN_NAME>
         Build/F7
+        This should produce <PLUGIN_NAME>.mll
 
-Using plugins: In Maya:python script editor:
+
+
+Load plugins
+================================================
 
     cmds.file(new=1, f=1)
     cmds.unloadPlugin(<PLUGIN_NAME>)
@@ -22,6 +30,11 @@ Using plugins: In Maya:python script editor:
         cmds.loadPlugin("<PLUGIN_NAME>.so")
     Windows
         cmds.loadPlugin("<PLUGIN_NAME>.mll")
+
+
+
+PSD Setup:
+================================================
 
     # Create deformer
     deformMesh = <mesh with skinCluster>
@@ -43,42 +56,101 @@ Using plugins: In Maya:python script editor:
 
 
 
+RELAX Setup
+================================================
 
+    # Create deformer
+    cyl = cmds.polyCylinder()[1]
+    cmds.setAttr(cyl+'.subdivisionsHeight', 10)
+    cmds.setAttr(cyl+'.subdivisionsCaps', 10)
+    cmds.deformer(type='relaxDeformer')
+
+
+
+
+================================================
 
 cmds.file(new=1, f=1)
 cmds.unloadPlugin("plugin")
 
 cmds.loadPlugin("/home/vmelapudi/Downloads/vit/mayaPlugins/*.so")
 
+# Relax deformer
+cyl = cmds.polyCylinder()[1]
+cmds.setAttr(cyl+'.subdivisionsHeight', 10)
+cmds.setAttr(cyl+'.subdivisionsCaps', 10)
+cmds.deformer(type='relaxDeformer')
+
+# PSD deformer
 cmds.file( '~/Downloads/vit/mayaPlugins/skinnedCylinder.ma', f=1, o=1 )
 
-# Create deformer
 orig = 'pCylinder1'
 cmds.select(orig)
 psd = cmds.poseSpaceCommand(create="poseSpaceDeformer1")
 
-# Add pose
+# Add pose0 with joint2
 cmds.rotate( 0, 0, 42, 'joint2', r=1 )
 poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
 
+
+# Add pose0 Target0
 dup = cmds.duplicate(orig)[0]
 cmds.hide(orig)
 cmds.select(dup+'.vtx[160:165]')
 cmds.move(36, 0, 0, r=1)
 cmds.select(dup)
-poseIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
+poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
 cmds.delete(dup)
 cmds.showHidden(orig)
 
-# Add pose
-cmds.rotate( 0, 0, 90, 'joint2', r=1 )
+
+# Add pose0 Target1
+dup = cmds.duplicate(orig)[0]
+cmds.hide(orig)
+cmds.select(dup+'.vtx[130:135]')
+cmds.move(0, 36, 0, r=1)
+cmds.select(dup)
+poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
+cmds.delete(dup)
+cmds.showHidden(orig)
+
+cmds.getAttr( psd+'.pose', mi=1 )
+cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
+cmds.getAttr( psd+'.pose[0].poseTarget', mi=1 )
+
+cmds.setAttr( psd+'.pose[0].poseTarget[0].poseEnvelope', 0 )
+cmds.setAttr( psd+'.pose[0].poseTarget[1].poseEnvelope', 0 )
+cmds.setAttr( psd+'.pose[0].poseTarget[0].poseEnvelope', 1 )
+cmds.setAttr( psd+'.pose[0].poseTarget[1].poseEnvelope', 1 )
+
+
+# Add pose1 with joint2
+cmds.rotate( 0, 0, 42, 'joint2', r=1 )
 poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
 
-dup = cmds.duplicate(orig)[0]
-cmds.hide(orig)
-cmds.select(dup+'.vtx[160:165]')
-cmds.move(36, 0, 0, r=1)
-cmds.select(dup)
-poseIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
-cmds.delete(dup)
-cmds.showHidden(orig)
+cmds.rotate( 0, 0, -21, 'joint2', r=1 )
+
+cmds.rotate( 0, 0, 21, 'joint2', r=1 )
+
+# Reset pose1 joint rotations
+cmds.rotate( 0, 0, -21, 'joint2', r=1 )
+poseIdx = cmds.poseSpaceCommand(psd, setPose=1)
+
+cmds.rotate( 0, 0, -21, 'joint2', r=1 )
+
+# Reset pose1 adding joint1
+cmds.rotate( 0, 0, 32, 'joint1', r=1 )
+poseIdx = cmds.poseSpaceCommand(psd, 'joint1', setPose=1)
+
+cmds.getAttr( psd+'.pose', mi=1 )
+cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
+cmds.getAttr( psd+'.pose[1].poseJoint', mi=1 )
+
+cmds.getAttr(psd+'.pose[0].poseJointRot')
+cmds.getAttr(psd+'.pose[1].poseJointRot')
+
+# Delete pose1
+poseIdx = cmds.poseSpaceCommand(psd, deletePose=1)
+
+cmds.getAttr( psd+'.pose', mi=1 )
+cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
