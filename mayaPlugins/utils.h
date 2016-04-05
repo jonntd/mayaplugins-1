@@ -33,6 +33,10 @@ namespace ErrorStr
     conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index";
     conststr PSDNoJointConn                     = "No joint is connected at index %d";
     conststr PSDPoseDeleteFailed                = "Failed to delete pose";
+    conststr PSDPoseTargetDeleteFailed          = "Failed to delete pose target";
+    conststr PSDInvalidPoseTarget               = "Posed mesh and mesh in poseSpaceDeformer differ in vertex count. Failed to add pose";
+    conststr PSDInvalidTargetDelta              = "Invalid pose target delta when updating poseTarget";
+    conststr PSDPoseTargetDoesntDiffer          = "Posed mesh is similar to mesh in poseSpaceDeformer. Failed to add pose target";
 
     conststr RelaxInvalidInput                  = "Relax deformer works on meshes only";
 };

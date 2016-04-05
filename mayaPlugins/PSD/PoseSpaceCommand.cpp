@@ -27,15 +27,21 @@
 
 #define SFLAG_CREATE                    "c"
 #define LFLAG_CREATE                    "create"
-#define SFLAG_ADDPOSE                   "ap"
-#define LFLAG_ADDPOSE                   "addPose"
+
 #define SFLAG_SETPOSE                   "sp"
 #define LFLAG_SETPOSE                   "setPose"
 #define SFLAG_DELETEPOSE                "dp"
 #define LFLAG_DELETEPOSE                "deletePose"
+
 #define SFLAG_SETPOSETARGET             "spt"
 #define LFLAG_SETPOSETARGET             "setPoseTarget"
+#define SFLAG_UPDATEPOSETARGET          "upt"
+#define LFLAG_UPDATEPOSETARGET          "updatePoseTarget"
+#define SFLAG_DELETEPOSETARGET          "dpt"
+#define LFLAG_DELETEPOSETARGET          "deletePoseTarget"
 
+#define SFLAG_POSEINDEX                 "pi"
+#define LFLAG_POSEINDEX                 "poseIndex"
 #define SFLAG_TARGETINDEX               "ti"
 #define LFLAG_TARGETINDEX               "targetIndex"
 
@@ -63,38 +69,106 @@ void PoseSpaceCommand::usage()
     char buf[1024];
     const char *cmd = PoseSpaceCommand::name;
 
-    str += (" USAGE: - Create and Sets up poseSpaceDeformer. \n" );
-    str += ("// ---------------------------------------\n" );
+    str = (" USAGE: - Create and Sets up poseSpaceDeformer (mel)\n" );
+    str += ("// ---------------------------------------" );
 
-    str += "//   Create PSD on selected mesh; returns node name\n";
-    sprintf(buf, "//     %s -%s <psd name>\n", cmd, LFLAG_CREATE);
+    sprintf(buf, "\n//   %-70s : ", "Create PSD on selected mesh; returns node name");
+    str += buf;
+    sprintf(buf, "%s -%s <psd name>", cmd, LFLAG_CREATE);
     str += buf;
 
-    str += "//   Add pose with given joints; returns poseIndex\n";
-    sprintf(buf, "//     %s -%s <psdNode> <joint list>\n", cmd, LFLAG_ADDPOSE);
+    sprintf(buf, "\n//   %-70s : ", "Add pose with given joints; returns poseIndex");
+    str += buf;
+    sprintf(buf, "%s -%s <psdNode> <joint list>", cmd, LFLAG_SETPOSE);
     str += buf;
 
-    str += "//   Reset pose with/for given joints\n";
-    sprintf(buf, "//     %s -%s <poseIndex> <psdNode> <joint list>\n", cmd, LFLAG_SETPOSE);
+    sprintf(buf, "\n//   %-70s : ", "Reset pose by adding new joints or updating given joint rotations");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> <psdNode> <joint list>", cmd, LFLAG_SETPOSE, LFLAG_POSEINDEX);
     str += buf;
 
-    str += "//   Reset pose's joints with current rotations\n";
-    sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_SETPOSE);
+    sprintf(buf, "\n//   %-70s : ", "Reset pose's joint rotations with current values");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> <psdNode>", cmd, LFLAG_SETPOSE, LFLAG_POSEINDEX);
     str += buf;
 
-    str += "//   Delete pose given poseIndex\n";
-    sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_DELETEPOSE);
+    sprintf(buf, "\n//   %-70s : ", "Delete pose given poseIndex");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> <psdNode>", cmd, LFLAG_DELETEPOSE, LFLAG_POSEINDEX);
     str += buf;
 
-    str += "//   Add pose target using selected mesh; returns poseTargetIndex\n";
-    sprintf(buf, "//     %s -%s <poseIndex> <psdNode>\n", cmd, LFLAG_SETPOSETARGET);
+    sprintf(buf, "\n//   %-70s : ", "Add pose target using selected mesh; returns poseTargetIndex");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> <psdNode>", cmd, LFLAG_SETPOSETARGET, LFLAG_POSEINDEX);
     str += buf;
 
-    str += "//   Reset pose target using selected mesh\n";
-    sprintf(buf, "//     %s -%s <poseIndex> -%s <targetIndex> <psdNode>\n", cmd, LFLAG_SETPOSETARGET, LFLAG_TARGETINDEX);
+    sprintf(buf, "\n//   %-70s : ", "Reset pose target using selected mesh, pose and target index");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> -%s <targetIndex> <psdNode>", cmd, LFLAG_SETPOSETARGET, LFLAG_POSEINDEX, LFLAG_TARGETINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Update pose target using selected mesh, pose and target index");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> -%s <targetIndex> <psdNode>", cmd, LFLAG_UPDATEPOSETARGET, LFLAG_POSEINDEX, LFLAG_TARGETINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Delete pose target given pose and target index");
+    str += buf;
+    sprintf(buf, "%s -%s -%s <poseIndex> -%s <targetIndex> <psdNode>", cmd, LFLAG_DELETEPOSETARGET, LFLAG_POSEINDEX, LFLAG_TARGETINDEX);
     str += buf;
 
     MGlobal::displayInfo( str );
+
+
+    str = ("\n USAGE: - Create and Sets up poseSpaceDeformer (python)\n" );
+    str += ("// ---------------------------------------" );
+
+    sprintf(buf, "\n//   %-70s : ", "Create PSD on selected mesh; returns node name");
+    str += buf;
+    sprintf(buf, "cmds.%s( %s=<psd name> )", cmd, LFLAG_CREATE);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Add pose with given joints; returns poseIndex");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, <joint list>, %s=1 )", cmd, LFLAG_SETPOSE);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Reset pose by adding new joints or updating given joint rotations");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, <joint list>, %s=1, %s=<poseIndex> )", cmd, LFLAG_SETPOSE, LFLAG_POSEINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Reset pose's joint rotations with current values");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, %s=1, %s=<poseIndex> )", cmd, LFLAG_SETPOSE, LFLAG_POSEINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Delete pose given poseIndex");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, %s=1, %s=<poseIndex> )", cmd, LFLAG_DELETEPOSE, LFLAG_POSEINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Add pose target using selected mesh; returns poseTargetIndex");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, %s=1, %s=<poseIndex> )>", cmd, LFLAG_SETPOSETARGET, LFLAG_POSEINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Reset pose target using selected mesh, pose and target index");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, %s=1, %s=<poseIndex>, %s=<targetIndex> )", cmd, LFLAG_SETPOSETARGET, LFLAG_POSEINDEX, LFLAG_TARGETINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Update pose target using selected mesh, pose and target index");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, %s=1, %s=<poseIndex>, %s=<targetIndex> )", cmd, LFLAG_UPDATEPOSETARGET, LFLAG_POSEINDEX, LFLAG_TARGETINDEX);
+    str += buf;
+
+    sprintf(buf, "\n//   %-70s : ", "Delete pose target given pose and target index");
+    str += buf;
+    sprintf(buf, "cmds.%s( <psdNode>, %s=1, %s=<poseIndex>, %s=<targetIndex>)", cmd, LFLAG_DELETEPOSETARGET, LFLAG_POSEINDEX, LFLAG_TARGETINDEX);
+    str += buf;
+
+    MGlobal::displayInfo( str );    
 }
 
 
@@ -107,10 +181,15 @@ MSyntax PoseSpaceCommand::cmdSyntax()
     syntax.addFlag(SFLAG_HELP, LFLAG_HELP);
 
     syntax.addFlag(SFLAG_CREATE, LFLAG_CREATE, MSyntax::kString);
-    syntax.addFlag(SFLAG_ADDPOSE, LFLAG_ADDPOSE);
-    syntax.addFlag(SFLAG_SETPOSE, LFLAG_SETPOSE, MSyntax::kUnsigned);
-    syntax.addFlag(SFLAG_DELETEPOSE, LFLAG_DELETEPOSE, MSyntax::kUnsigned);
-    syntax.addFlag(SFLAG_SETPOSETARGET, LFLAG_SETPOSETARGET, MSyntax::kUnsigned);
+
+    syntax.addFlag(SFLAG_SETPOSE, LFLAG_SETPOSE);
+    syntax.addFlag(SFLAG_DELETEPOSE, LFLAG_DELETEPOSE);
+
+    syntax.addFlag(SFLAG_SETPOSETARGET, LFLAG_SETPOSETARGET);
+    syntax.addFlag(SFLAG_UPDATEPOSETARGET, LFLAG_UPDATEPOSETARGET);
+    syntax.addFlag(SFLAG_DELETEPOSETARGET, LFLAG_DELETEPOSETARGET);
+
+    syntax.addFlag(SFLAG_POSEINDEX, LFLAG_POSEINDEX, MSyntax::kUnsigned);
     syntax.addFlag(SFLAG_TARGETINDEX, LFLAG_TARGETINDEX, MSyntax::kUnsigned);
 
     syntax.enableQuery(false);
@@ -135,44 +214,48 @@ MStatus PoseSpaceCommand::parseArgs( const MArgList& args )
     if (argDB.isFlagSet(LFLAG_HELP))
     {
         usage();
+        return MS::kSuccess;
     }
-    else if (argDB.isFlagSet(LFLAG_CREATE))
+
+
+    _poseIndex = -1;
+    _targetIndex = -1;
+    _updateTarget = false;
+
+    if (argDB.isFlagSet(LFLAG_POSEINDEX))
+        stat = argDB.getFlagArgument(LFLAG_POSEINDEX, 0, _poseIndex);
+
+    if (argDB.isFlagSet(SFLAG_TARGETINDEX))
+        stat = argDB.getFlagArgument(SFLAG_TARGETINDEX, 0, _targetIndex);
+
+
+    if (argDB.isFlagSet(LFLAG_CREATE))
     {
         _operation = LFLAG_CREATE;
 
         stat = argDB.getFlagArgument(LFLAG_CREATE, 0, _poseSpaceDeformer);
         MCheckStatus(stat, ErrorStr::FailedToParseArgs);
     }
-    else if (argDB.isFlagSet(LFLAG_ADDPOSE))
-    {
-        _operation = LFLAG_SETPOSE;
-        _poseIndex = -1;
-    }    
     else if (argDB.isFlagSet(LFLAG_SETPOSE))
     {
         _operation = LFLAG_SETPOSE;
-
-        stat = argDB.getFlagArgument(LFLAG_SETPOSE, 0, _poseIndex);
     }
     else if (argDB.isFlagSet(LFLAG_DELETEPOSE))
     {
         _operation = LFLAG_DELETEPOSE;
-
-        stat = argDB.getFlagArgument(LFLAG_DELETEPOSE, 0, _poseIndex);
     }    
     else if (argDB.isFlagSet(LFLAG_SETPOSETARGET))
     {
         _operation = LFLAG_SETPOSETARGET;
-
-        stat = argDB.getFlagArgument(LFLAG_SETPOSETARGET, 0, _poseIndex);
-
-        _targetIndex = -1;
-        if (argDB.isFlagSet(LFLAG_TARGETINDEX))
-        {
-            stat = argDB.getFlagArgument(LFLAG_TARGETINDEX, 0, _targetIndex);
-            MCheckStatus(stat, ErrorStr::FailedToParseArgs);
-        }
-
+    }
+    else if (argDB.isFlagSet(LFLAG_UPDATEPOSETARGET))
+    {
+        _operation = LFLAG_SETPOSETARGET;
+        _updateTarget = true;
+    }    
+    else if (argDB.isFlagSet(LFLAG_DELETEPOSETARGET))
+    {
+        _operation = LFLAG_DELETEPOSETARGET;
     }
 
     return MS::kSuccess;
@@ -197,10 +280,14 @@ MStatus PoseSpaceCommand::doIt( const MArgList& args )
     else if (_operation == LFLAG_DELETEPOSE)
     {
         stat = deletePose();
-    }    
+    }
     else if (_operation == LFLAG_SETPOSETARGET)
     {
         stat = setPoseTarget();
+    }
+    else if (_operation == LFLAG_DELETEPOSETARGET)
+    {
+        stat = deletePoseTarget();
     }
 
     return stat;
@@ -545,6 +632,54 @@ MStatus PoseSpaceCommand::setPoseTarget()
     MFnGeometryFilter fnDeformer(obj);
 
 
+
+
+    // Get pose and poseTarget
+    MPlug pPose = fnDeformer.findPlug(PoseSpaceDeformer::aPose);
+    {        
+        // Check if given poseIndex exists
+        bool found = false;
+        for( unsigned i=0; i < pPose.numElements(); ++i )
+            if (_poseIndex == pPose[i].logicalIndex())
+            {
+                found = true;
+                break;
+            }
+        if (found == false)
+            MReturnFailure(ErrorStr::PSDInvalidPoseIndex);
+    }
+    pPose = pPose.elementByLogicalIndex(_poseIndex);
+
+    // Get next pose target index
+    MPlug pPoseTarget = pPose.child(PoseSpaceDeformer::aPoseTarget);
+    if ( _targetIndex == -1 )
+    {
+        _targetIndex = 0;
+        if (pPoseTarget.numElements())
+            _targetIndex = pPoseTarget[pPoseTarget.numElements()-1].logicalIndex() + 1;
+    }
+    else
+    {        
+        // Check if given targetIndex exists
+        bool found = false;
+        for( unsigned i=0; i < pPoseTarget.numElements(); ++i )
+            if (_targetIndex == pPoseTarget[i].logicalIndex())
+            {
+                found = true;
+                break;
+            }
+        if (found == false)
+            MReturnFailure(ErrorStr::PSDInvalidTargetIndex);
+    }
+    pPoseTarget = pPoseTarget.elementByLogicalIndex(_targetIndex);
+
+    // Set pose components and delta
+    MPlug pPoseComp = pPoseTarget.child(PoseSpaceDeformer::aPoseComponents);
+    MPlug pPoseDelta = pPoseTarget.child(PoseSpaceDeformer::aPoseDelta);
+
+
+
+
     // Get output mesh from deformer
     MDagPath srcPath;
     fnDeformer.getPathAtIndex(0, srcPath);
@@ -629,14 +764,34 @@ MStatus PoseSpaceCommand::setPoseTarget()
 
     if ( srcPositions.length() != tgtPositions.length() )
     {
-        MReturnFailure("Posed mesh and mesh in poseSpaceDeformer differ in vertex count. Failed to add pose.");
+        MReturnFailure(ErrorStr::PSDInvalidPoseTarget);
     }
 
 
 
+    // Get existing delta, if we want to updateTarget
+    std::map<int, MVector> deltaMap;
+    if (_updateTarget)
+    {
+        pPoseComp.getValue(obj);
+        MFnIntArrayData fnIntArrData(obj);
+        MIntArray components = fnIntArrData.array();
+
+        pPoseDelta.getValue(obj);
+        MFnVectorArrayData fnVectorArrData(obj);
+        MVectorArray deltas = fnVectorArrData.array();
+
+        if ( components.length() != deltas.length() )
+        {
+            MReturnFailure(ErrorStr::PSDInvalidTargetDelta);
+        }
+
+        for(unsigned i=0; i < components.length(); ++i)
+            deltaMap[components[i]] = deltas[i];
+    }
+
+
     // Get components with delta (in bind space)
-    MIntArray components;
-    MVectorArray deltas;
     for( unsigned i=0; i < srcPositions.length(); ++i )
     {
         // Delta in skin space
@@ -661,59 +816,25 @@ MStatus PoseSpaceCommand::setPoseTarget()
         // Convert delta from skin to bind space
         delta = delta * skinMatrix.inverse();
 
-        components.append(i);
-        deltas.append(delta);
+        deltaMap[i] = deltaMap[i] + delta;
     }
 
-    if (components.length() == 0)
+    if (deltaMap.size() == 0)
     {
-        MReturnFailure("Posed mesh is similar to mesh in poseSpaceDeformer. Failed to add pose.");
+        MReturnFailure(ErrorStr::PSDPoseTargetDoesntDiffer);
     }
 
 
-    // Get pose and poseTarget
-    MPlug pPose = fnDeformer.findPlug(PoseSpaceDeformer::aPose);
-    {        
-        // Check if given poseIndex exists
-        bool found = false;
-        for( unsigned i=0; i < pPose.numElements(); ++i )
-            if (_poseIndex == pPose[i].logicalIndex())
-            {
-                found = true;
-                break;
-            }
-        if (found == false)
-            MReturnFailure(ErrorStr::PSDInvalidPoseIndex);
-    }
-    pPose = pPose.elementByLogicalIndex(_poseIndex);
-
-    // Get next pose target index
-    MPlug pPoseTarget = pPose.child(PoseSpaceDeformer::aPoseTarget);
-    if ( _targetIndex == -1 )
+    // Copy components/delta onto plug
+    MIntArray components;
+    MVectorArray deltas;
+    std::map<int,MVector>::const_iterator iter;
+    for(iter=deltaMap.begin(); iter != deltaMap.end(); ++iter)
     {
-        _targetIndex = 0;
-        if (pPoseTarget.numElements())
-            _targetIndex = pPoseTarget[pPoseTarget.numElements()-1].logicalIndex() + 1;
+        components.append(iter->first);
+        deltas.append(iter->second);
     }
-    else
-    {        
-        // Check if given poseIndex exists
-        bool found = false;
-        for( unsigned i=0; i < pPoseTarget.numElements(); ++i )
-            if (_targetIndex == pPoseTarget[i].logicalIndex())
-            {
-                found = true;
-                break;
-            }
-        if (found == false)
-            MReturnFailure(ErrorStr::PSDInvalidTargetIndex);
-    }    
-    pPoseTarget = pPoseTarget.elementByLogicalIndex(_targetIndex);
 
-
-    // Set pose components and delta
-    MPlug pPoseComp = pPoseTarget.child(PoseSpaceDeformer::aPoseComponents);
-    MPlug pPoseDelta = pPoseTarget.child(PoseSpaceDeformer::aPoseDelta);
 
     MFnIntArrayData fnIntArrData;
     obj = fnIntArrData.create();
@@ -727,6 +848,58 @@ MStatus PoseSpaceCommand::setPoseTarget()
 
 
     setResult(_targetIndex);
+
+    return MS::kSuccess;
+}
+
+
+MStatus PoseSpaceCommand::deletePoseTarget()
+{
+    MStatus stat;
+    MString msg;
+    MObject obj;
+
+    // Get deformer
+    stat = getDeformerFromSelList(obj);
+    MCheckStatus(stat, "");
+    MFnGeometryFilter fnDeformer(obj);
+
+    // Check if given poseIndex exists
+    MPlug pPose = fnDeformer.findPlug(PoseSpaceDeformer::aPose);
+    bool found = false;
+    for( unsigned i=0; i < pPose.numElements(); ++i )
+        if (_poseIndex == pPose[i].logicalIndex())
+        {
+            found = true;
+            break;
+        }
+    if (found == false)
+        MReturnFailure(ErrorStr::PSDInvalidPoseIndex);
+
+    pPose = pPose.elementByLogicalIndex(_poseIndex);
+
+
+
+    // Check if given targetIndex exists
+    found = false;
+    MPlug pPoseTarget = pPose.child(PoseSpaceDeformer::aPoseTarget);
+    for( unsigned i=0; i < pPoseTarget.numElements(); ++i )
+        if (_targetIndex == pPoseTarget[i].logicalIndex())
+        {
+            found = true;
+            break;
+        }
+    if (found == false)
+        MReturnFailure(ErrorStr::PSDInvalidTargetIndex);
+
+    pPoseTarget = pPoseTarget.elementByLogicalIndex(_targetIndex);
+
+
+    // Remove pose plug
+    MDGModifier dgMod;
+    stat = dgMod.removeMultiInstance(pPoseTarget, true);
+    stat = dgMod.doIt();
+    MCheckStatus(stat, ErrorStr::PSDPoseTargetDeleteFailed);
 
     return MS::kSuccess;
 }

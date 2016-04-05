@@ -50,7 +50,7 @@ PSD Setup:
     cmds.hide(deformMesh)
     <edit duplicateMesh vertices to set it up as pose mesh>
     cmds.select(duplicateMesh)
-    poseTargetIdx = cmds.poseSpaceCommand(psdNode, setPoseTarget=poseIdx)
+    poseTargetIdx = cmds.poseSpaceCommand(psdNode, addPoseTarget=poseIdx)
     cmds.delete(duplicateMesh)
     cmds.showHidden(deformMesh)
 
@@ -64,6 +64,8 @@ RELAX Setup
     cmds.setAttr(cyl+'.subdivisionsHeight', 10)
     cmds.setAttr(cyl+'.subdivisionsCaps', 10)
     cmds.deformer(type='relaxDeformer')
+
+
 
 
 
@@ -83,14 +85,16 @@ cmds.deformer(type='relaxDeformer')
 
 # PSD deformer
 cmds.file( '~/Downloads/vit/mayaPlugins/skinnedCylinder.ma', f=1, o=1 )
-
 orig = 'pCylinder1'
 cmds.select(orig)
+
+cmds.poseSpaceCommand(h=1)
+
 psd = cmds.poseSpaceCommand(create="poseSpaceDeformer1")
 
 # Add pose0 with joint2
 cmds.rotate( 0, 0, 42, 'joint2', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
+poseIdx = cmds.poseSpaceCommand(psd, 'joint2', setPose=1)
 
 
 # Add pose0 Target0
@@ -99,7 +103,7 @@ cmds.hide(orig)
 cmds.select(dup+'.vtx[160:165]')
 cmds.move(36, 0, 0, r=1)
 cmds.select(dup)
-poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
+poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0)
 cmds.delete(dup)
 cmds.showHidden(orig)
 
@@ -108,11 +112,25 @@ cmds.showHidden(orig)
 dup = cmds.duplicate(orig)[0]
 cmds.hide(orig)
 cmds.select(dup+'.vtx[130:135]')
-cmds.move(0, 36, 0, r=1)
+cmds.move(0, 0, 36, r=1)
 cmds.select(dup)
-poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=0)
+poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0)
 cmds.delete(dup)
 cmds.showHidden(orig)
+
+# Reset pose0 Target1
+dup = cmds.duplicate(orig)[0]
+cmds.hide(orig)
+cmds.select(dup+'.vtx[207:211]')
+cmds.move(0, 0, 36, r=1)
+cmds.select(dup)
+poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0, targetIndex=1)
+cmds.delete(dup)
+cmds.showHidden(orig)
+
+
+cmds.poseSpaceCommand(psd, deletePoseTarget=1, poseIndex=0, targetIndex=1)
+
 
 cmds.getAttr( psd+'.pose', mi=1 )
 cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
@@ -126,7 +144,18 @@ cmds.setAttr( psd+'.pose[0].poseTarget[1].poseEnvelope', 1 )
 
 # Add pose1 with joint2
 cmds.rotate( 0, 0, 42, 'joint2', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, 'joint2', addPose=1)
+poseIdx = cmds.poseSpaceCommand(psd, 'joint2', setPose=1)
+
+# Add pose1 Target0
+dup = cmds.duplicate(orig)[0]
+cmds.hide(orig)
+cmds.select(dup+'.vtx[220:260]')
+cmds.move(0, 65, 0, r=1)
+cmds.select(dup)
+poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0)
+cmds.delete(dup)
+cmds.showHidden(orig)
+
 
 cmds.rotate( 0, 0, -21, 'joint2', r=1 )
 
@@ -140,7 +169,9 @@ cmds.rotate( 0, 0, -21, 'joint2', r=1 )
 
 # Reset pose1 adding joint1
 cmds.rotate( 0, 0, 32, 'joint1', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, 'joint1', setPose=1)
+poseIdx = cmds.poseSpaceCommand(psd, 'joint1', setPose=1, poseIndex=1)
+
+cmds.rotate( 0, 0, 21, 'joint2', r=1 )
 
 cmds.getAttr( psd+'.pose', mi=1 )
 cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
@@ -150,7 +181,9 @@ cmds.getAttr(psd+'.pose[0].poseJointRot')
 cmds.getAttr(psd+'.pose[1].poseJointRot')
 
 # Delete pose1
-poseIdx = cmds.poseSpaceCommand(psd, deletePose=1)
+poseIdx = cmds.poseSpaceCommand(psd, deletePose=1, poseIndex=1)
 
 cmds.getAttr( psd+'.pose', mi=1 )
 cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
+
+

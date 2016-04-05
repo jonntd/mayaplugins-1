@@ -35,7 +35,7 @@ MStatus RelaxDeformer::initialize()
     MFnNumericAttribute nAttr;
 
 #ifdef _DEBUG
-    aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean, 1);
+    aDebug = nAttr.create("debug", "d", MFnNumericData::kBoolean);
     addAttribute(aDebug);
 #endif
 

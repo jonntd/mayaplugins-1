@@ -37,6 +37,7 @@ private:
     MStatus             setPose();
     MStatus             deletePose();
     MStatus             setPoseTarget();
+    MStatus             deletePoseTarget();
 
 
 private:
@@ -48,6 +49,7 @@ private:
     MString             _poseSpaceDeformer;
     int                 _poseIndex;
     int                 _targetIndex;
+    bool                _updateTarget;
 };
 
 
