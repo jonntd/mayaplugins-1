@@ -31,13 +31,8 @@ private:
 
     MStatus             getMeshFromSelList(MObject& obj);
     MStatus             getDeformerFromSelList(MObject& obj);
-    MStatus             getJointsFromSelList(MObjectArray& joints);
 
-    MStatus             create();
-    MStatus             setPose();
-    MStatus             deletePose();
     MStatus             setPoseTarget();
-    MStatus             deletePoseTarget();
 
 
 private:

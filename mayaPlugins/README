@@ -2,20 +2,19 @@
 Building plugins
 ================================================
 
-    Linux
-        In Makefile
-            Change MAYA_LOCATION
-            Change PLUGIN_NAME
-        Run >make in command line
-        This should produce <PLUGIN_NAME>.so
-    Windows
-        Set MAYA_LOCATION in environment variable
-        Set EIGEN_LOCATION in environment variable
-        Open plugin.sln in visual studio
-        Open project properties (Alt+F7)
-            Select 'General', change 'Target Name' to rename <PLUGIN_NAME>
-        Build/F7
-        This should produce <PLUGIN_NAME>.mll
+    Eigen math library
+        Download latest Eigen release from http://eigen.tuxfamily.org/
+        Unzip
+        It is not required to build or compile the library
+
+    Set MAYA_LOCATION in environment variable
+    Set EIGEN_LOCATION in environment variable (point to top level Eigen folder)
+
+    Open plugin.sln in visual studio
+    Open project properties (Alt+F7)
+        Select 'General', change 'Target Name' to rename <PLUGIN_NAME>
+    Build/F7
+    This should produce <PLUGIN_NAME>.mll
 
 
 
@@ -26,33 +25,91 @@ Load plugins
     cmds.unloadPlugin(<PLUGIN_NAME>)
 
     # Load plugins
-    Linux:
-        cmds.loadPlugin("<PLUGIN_NAME>.so")
-    Windows
-        cmds.loadPlugin("<PLUGIN_NAME>.mll")
+    cmds.loadPlugin("<PLUGIN_NAME>.mll")
 
 
 
 PSD Setup:
 ================================================
 
-    # Create deformer
-    deformMesh = <mesh with skinCluster>
-    cmds.select(deformMesh)
-    psdNode = cmds.poseSpaceCommand(create='poseDeformerNewName')
+    import sys
+    sys.path.append('mayaPlugins/PSD')
+    from psd import PoseSpaceDeformer
+
+
+
+    # Create PSD
+    psd = PoseSpaceDeformer.create('psd')
+    psd = PoseSpaceDeformer('psd')
 
     # Add pose
-    <Pose/rotate joints>
-    poseIdx = cmds.poseSpaceCommand(psdNode, 'joint2', addPose=1)
+    psd.addPose('pose1')
+    cmds.rotate( 0, 0, 42, 'joint2', r=1 )
+    psd.addPoseJoints('pose1', 'joint2')
+
+    print psd.poseAttr('pose1')
+    print psd.poseNames()
+    print psd.poseWeight('pose1')
+
+    # Update pose
+    cmds.rotate( 0, 0, -21, 'joint2', r=1 )
+    psd.updatePoseJoints('pose1')
+
+    # Add new pose
+    psd.addPose('pose2')
+    cmds.rotate( 0, 0, 42, 'joint2', r=1 )
+    psd.addPoseJoints('pose2', 'joint2')
+
+    print psd.poseWeight('pose1')
+    print psd.poseWeight('pose2')
+
+    # Add new pose
+    psd.addPose('pose3')
+    cmds.rotate( 0, 42, 0, 'joint2', r=1 )
+    psd.addPoseJoints('pose3', 'joint2')
+
+    # Add joint to pose
+    psd.addPoseJoints('pose3', 'joint1')
+    print psd.poseJoints('pose3')
+
+    # Delete pose
+    print psd.poseNames()
+    psd.deletePose('pose3')
+    print psd.poseNames()
+
+    cmds.rotate( 0, -42, 0, 'joint2', r=1 )
 
     # Add pose target
-    duplicateMesh = cmds.duplicate(deformMesh)
-    cmds.hide(deformMesh)
-    <edit duplicateMesh vertices to set it up as pose mesh>
-    cmds.select(duplicateMesh)
-    poseTargetIdx = cmds.poseSpaceCommand(psdNode, addPoseTarget=poseIdx)
-    cmds.delete(duplicateMesh)
-    cmds.showHidden(deformMesh)
+    psd.initPoseTarget('pose2', 'target1')
+    <Edit target in viewport>
+    psd.setPoseTarget()
+    print psd.poseTargets('pose2')
+
+    # Reset pose target
+    psd.initPoseTarget('pose2', 'target1')
+    <Edit target in viewport>
+    psd.setPoseTarget()
+
+    # Update pose target
+    psd.initPoseTarget('pose2', 'target1')
+    <Edit target in viewport>
+    psd.updatePoseTarget()
+
+    # Cancel pose target
+    psd.initPoseTarget('pose2', 'target1')
+    psd.cancelPoseTarget()
+
+    # Add pose target
+    psd.initPoseTarget('pose2', 'target2')
+    <Edit target in viewport>
+    psd.setPoseTarget()
+    print psd.poseTargets('pose2')
+
+    # Delete pose target
+    print psd.poseTargets('pose2')
+    psd.deletePoseTarget('pose2', 'target2')
+    print psd.poseTargets('pose2')
+
 
 
 
@@ -64,126 +121,5 @@ RELAX Setup
     cmds.setAttr(cyl+'.subdivisionsHeight', 10)
     cmds.setAttr(cyl+'.subdivisionsCaps', 10)
     cmds.deformer(type='relaxDeformer')
-
-
-
-
-
-
-================================================
-
-cmds.file(new=1, f=1)
-cmds.unloadPlugin("plugin")
-
-cmds.loadPlugin("/home/vmelapudi/Downloads/vit/mayaPlugins/*.so")
-
-# Relax deformer
-cyl = cmds.polyCylinder()[1]
-cmds.setAttr(cyl+'.subdivisionsHeight', 10)
-cmds.setAttr(cyl+'.subdivisionsCaps', 10)
-cmds.deformer(type='relaxDeformer')
-
-# PSD deformer
-cmds.file( '~/Downloads/vit/mayaPlugins/skinnedCylinder.ma', f=1, o=1 )
-orig = 'pCylinder1'
-cmds.select(orig)
-
-cmds.poseSpaceCommand(h=1)
-
-psd = cmds.poseSpaceCommand(create="poseSpaceDeformer1")
-
-# Add pose0 with joint2
-cmds.rotate( 0, 0, 42, 'joint2', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, 'joint2', setPose=1)
-
-
-# Add pose0 Target0
-dup = cmds.duplicate(orig)[0]
-cmds.hide(orig)
-cmds.select(dup+'.vtx[160:165]')
-cmds.move(36, 0, 0, r=1)
-cmds.select(dup)
-poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0)
-cmds.delete(dup)
-cmds.showHidden(orig)
-
-
-# Add pose0 Target1
-dup = cmds.duplicate(orig)[0]
-cmds.hide(orig)
-cmds.select(dup+'.vtx[130:135]')
-cmds.move(0, 0, 36, r=1)
-cmds.select(dup)
-poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0)
-cmds.delete(dup)
-cmds.showHidden(orig)
-
-# Reset pose0 Target1
-dup = cmds.duplicate(orig)[0]
-cmds.hide(orig)
-cmds.select(dup+'.vtx[207:211]')
-cmds.move(0, 0, 36, r=1)
-cmds.select(dup)
-poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0, targetIndex=1)
-cmds.delete(dup)
-cmds.showHidden(orig)
-
-
-cmds.poseSpaceCommand(psd, deletePoseTarget=1, poseIndex=0, targetIndex=1)
-
-
-cmds.getAttr( psd+'.pose', mi=1 )
-cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
-cmds.getAttr( psd+'.pose[0].poseTarget', mi=1 )
-
-cmds.setAttr( psd+'.pose[0].poseTarget[0].poseEnvelope', 0 )
-cmds.setAttr( psd+'.pose[0].poseTarget[1].poseEnvelope', 0 )
-cmds.setAttr( psd+'.pose[0].poseTarget[0].poseEnvelope', 1 )
-cmds.setAttr( psd+'.pose[0].poseTarget[1].poseEnvelope', 1 )
-
-
-# Add pose1 with joint2
-cmds.rotate( 0, 0, 42, 'joint2', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, 'joint2', setPose=1)
-
-# Add pose1 Target0
-dup = cmds.duplicate(orig)[0]
-cmds.hide(orig)
-cmds.select(dup+'.vtx[220:260]')
-cmds.move(0, 65, 0, r=1)
-cmds.select(dup)
-poseTargetIdx = cmds.poseSpaceCommand(psd, setPoseTarget=1, poseIndex=0)
-cmds.delete(dup)
-cmds.showHidden(orig)
-
-
-cmds.rotate( 0, 0, -21, 'joint2', r=1 )
-
-cmds.rotate( 0, 0, 21, 'joint2', r=1 )
-
-# Reset pose1 joint rotations
-cmds.rotate( 0, 0, -21, 'joint2', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, setPose=1)
-
-cmds.rotate( 0, 0, -21, 'joint2', r=1 )
-
-# Reset pose1 adding joint1
-cmds.rotate( 0, 0, 32, 'joint1', r=1 )
-poseIdx = cmds.poseSpaceCommand(psd, 'joint1', setPose=1, poseIndex=1)
-
-cmds.rotate( 0, 0, 21, 'joint2', r=1 )
-
-cmds.getAttr( psd+'.pose', mi=1 )
-cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
-cmds.getAttr( psd+'.pose[1].poseJoint', mi=1 )
-
-cmds.getAttr(psd+'.pose[0].poseJointRot')
-cmds.getAttr(psd+'.pose[1].poseJointRot')
-
-# Delete pose1
-poseIdx = cmds.poseSpaceCommand(psd, deletePose=1, poseIndex=1)
-
-cmds.getAttr( psd+'.pose', mi=1 )
-cmds.getAttr( psd+'.pose[0].poseJoint', mi=1 )
 
 

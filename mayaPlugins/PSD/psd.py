@@ -1,6 +1,8 @@
+import os
 import maya.cmds as cmds
 
 
+PLUGINPATH = 'mayaPlugins'
 PLUGIN = 'plugin'
 NODETYPE = 'poseSpaceDeformer'
 
@@ -13,13 +15,15 @@ class PoseSpaceDeformer(object):
     @staticmethod
     def create(name='psd'):
 
-        cmds.loadPlugin(PLUGIN)
+        if not cmds.pluginInfo(PLUGIN, q=1, loaded=1):
+            pluginPath = os.path.join(PLUGINPATH, PLUGIN)
+            cmds.loadPlugin(pluginPath)
 
         sel = cmds.ls(sl=1)
         if not sel:
-            return
+            return RuntimeError('Objects should be selected to create PSD')
 
-        if cmds.nodeType(sel[0]) == 'transform:
+        if cmds.nodeType(sel[0]) == 'transform':
             sel = cmds.listRelatives(sel[0], c=1)
 
         if cmds.nodeType(sel[0]) != 'mesh':
@@ -35,7 +39,7 @@ class PoseSpaceDeformer(object):
         if not skinCluster:
             raise RuntimeError('PSD can only be created on mesh with skinCluster')
 
-        name = cmds.deformer(type=NODETYPE, name=name)
+        name = cmds.deformer(type=NODETYPE, name=name)[0]
 
         cmds.connectAttr(skinCluster+'.weightList', name+'.skinClusterWeightList')
 
@@ -59,17 +63,29 @@ class PoseSpaceDeformer(object):
             poseNames.append(pn)
         return poseNames
 
-    def poseAttr(self, poseName):
-        '''Get pose attr'''
+    def poseIndex(self, poseName):
+        '''Get pose index'''
 
         poseIndices = cmds.getAttr(self.name+'.pose', mi=1) or []
 
         for pi in poseIndices:
             poseAttr = '{}.pose[{}]'.format(self.name, pi)
             if poseName == cmds.getAttr('{}.poseName'.format(poseAttr)):
-                return poseAttr
+                return pi
 
-        raise RuntimeError('{} pose doesnt exist'.format(poseName))
+        raise RuntimeError('{} pose doesnt exist'.format(poseName))        
+
+    def poseAttr(self, poseName):
+        '''Get pose attr'''
+
+        index = self.poseIndex(poseName)
+
+        return '{}.pose[{}]'.format(self.name, index)
+
+    def poseWeight(self, poseName):
+        
+        poseAttr = self.poseAttr(poseName)
+        return cmds.getAttr(poseAttr+'.poseWeight')
 
     def addPose(self, poseName):
         '''Add new pose'''
@@ -115,7 +131,7 @@ class PoseSpaceDeformer(object):
 
             # Set pose joint values
             rot = cmds.getAttr(joint+'.rotate')
-            cmds.setAttr('{}.poseJoints[{}].poseJointRot'.format(poseAttr, index), *rot)
+            cmds.setAttr('{}.poseJoint[{}].poseJointRot'.format(poseAttr, index), *rot[0])
 
     def poseJoints(self, poseName):
         '''Get pose joint names'''
@@ -123,9 +139,9 @@ class PoseSpaceDeformer(object):
         poseAttr = self.poseAttr(poseName)
 
         joints = []
-        jointIndices = cmds.getAttr('{}.poseJoints'.format(poseAttr) or []
+        jointIndices = cmds.getAttr('{}.poseJoint'.format(poseAttr), mi=1) or []
         for ji in jointIndices:
-            conns = cmds.listConnections('{}.joint[{}].jointRot'.format(self.name, ji)
+            conns = cmds.listConnections('{}.joint[{}].jointRot'.format(self.name, ji))
             joints.append(conns[0])
 
         return joints
@@ -135,13 +151,14 @@ class PoseSpaceDeformer(object):
 
         poseAttr = self.poseAttr(poseName)
 
-        jointIndices = cmds.getAttr('{}.poseJoints'.format(poseAttr) or []
+        jointIndices = cmds.getAttr('{}.poseJoint'.format(poseAttr), mi=1) or []
         for ji in jointIndices:
-            conns = cmds.listConnections('{}.joint[{}].jointRot'.format(self.name, ji)
+            conns = cmds.listConnections('{}.joint[{}].jointRot'.format(self.name, ji))
 
             # Set pose joint values
             rot = cmds.getAttr(conns[0]+'.rotate')
-            cmds.setAttr('{}.poseJoints[{}].poseJointRot'.format(poseAttr, ji), *rot)
+            print 'updatePoseJoints: ', ji, conns[0], rot
+            cmds.setAttr('{}.poseJoint[{}].poseJointRot'.format(poseAttr, ji), *rot[0])
 
 
     def setPoseFallOff(self, poseName, fallOff):
@@ -158,19 +175,45 @@ class PoseSpaceDeformer(object):
 
         cmds.removeMultiInstance(poseAttr, b=1)
 
-
-    def poseTargetAttr(self, poseName, targetName):
-        '''Get pose target attr'''
+    def poseTargetIndex(self, poseName, targetName):
 
         poseAttr = self.poseAttr(poseName)
 
         targetIndices = cmds.getAttr('{}.poseTarget'.format(poseAttr), mi=1) or []
         for ti in targetIndices:
-            targetAttr = cmds.getAttr('{}.poseTarget[{}]'.format(poseAttr, ti),
+            targetAttr = '{}.poseTarget[{}]'.format(poseAttr, ti)
             if cmds.getAttr('{}.poseTargetName'.format(targetAttr)) == targetName:
-                return targetAttr
+                return ti
 
         raise RuntimeError('{} target doesnt exist in pose {}'.format(targetName, poseName))
+
+    def poseTargetAttr(self, poseName, targetName):
+        '''Get pose target attr'''
+
+        index = self.poseTargetIndex(poseName, targetName)
+
+        poseAttr = self.poseAttr(poseName)
+        return '{}.poseTarget[{}]'.format(poseAttr, index)
+
+
+    def poseTargets(self, poseName):
+        '''Return target names'''
+
+        poseAttr = self.poseAttr(poseName)
+
+        targets = []
+        targetIndices = cmds.getAttr('{}.poseTarget'.format(poseAttr), mi=1) or []
+        for ti in targetIndices:
+            targetName = cmds.getAttr('{}.poseTarget[{}].poseTargetName'.format(poseAttr, ti))
+            targets.append(targetName)
+
+        return targets
+
+
+    def setPoseTargetEnvelope(self, poseName, targetName, envelope):
+        
+        targetAttr = self.poseTargetAttr(poseName, targetName)
+        cmds.setAttr(targetAttr+'.poseTargetEnvelope', envelope)
 
     def initPoseTarget(self, poseName, targetName):
         '''Initialize to create/reset pose target'''
@@ -178,12 +221,33 @@ class PoseSpaceDeformer(object):
         if self._poseTarget:
             raise RuntimeError('Pose target is already initialized, set/update/cancel before re-initializing')
 
+        poseAttr = self.poseAttr(poseName)
+
+        # Duplicate geometry for target
+        defGeom = cmds.deformer(self.name, q=1, g=1)
+        duplicate = cmds.duplicate(defGeom)
+        cmds.hide(defGeom)
+        cmds.select(duplicate)
+
+        self._poseTarget = (poseName, targetName, duplicate)
+        
+        cmds.warning('Edit the target geometry')
+
+    def setPoseTarget(self):
+        '''Set pose target after initializing'''
+
+        if not self._poseTarget:
+            raise RuntimeError('Pose target should be initialized first')
+
+        (poseName, targetName, duplicate) = self._poseTarget
+
+
         # Find target index
         poseAttr = self.poseAttr(poseName)
         index = -1
         targetIndices = cmds.getAttr('{}.poseTarget'.format(poseAttr), mi=1) or []
         for ti in targetIndices:
-            poseTargetAttr = cmds.getAttr('{}.poseTarget[{}]'.format(poseAttr, ti),
+            poseTargetAttr = '{}.poseTarget[{}]'.format(poseAttr, ti)
             if cmds.getAttr('{}.poseTargetName'.format(poseTargetAttr)) == targetName:
                 index = ti
                 break
@@ -194,29 +258,14 @@ class PoseSpaceDeformer(object):
                 index = targetIndices[-1] + 1
             else:
                 index = 0
-            poseTargetAttr = cmds.getAttr('{}.poseTarget[{}]'.format(poseAttr, index)
+            poseTargetAttr = '{}.poseTarget[{}]'.format(poseAttr, index)
             cmds.setAttr('{}.poseTargetName'.format(poseTargetAttr), targetName, type='string')
 
-
-        # Duplicate geometry for target
-        defGeom = cmds.deformer(self.name, q=1, g=1)
-        cmds.hide(defGeom)
-        duplicate = cmds.duplicate(defGeom)
-
-        self._poseTarget = (poseTargetAttr, duplicate)
-        
-        print 'Edit the target geometry'
-
-    def setPoseTarget(self):
-        '''Set pose target after initializing'''
-
-        if not self._poseTarget:
-            raise RuntimeError('Pose target should be initialized first')
-
-        (poseTargetAttr, duplicate) = self._poseTarget
+        poseIndex = self.poseIndex(poseName)
+        targetIndex = index
 
         cmds.select(duplicate)
-        cmds.poseSpaceCommand(self.name, setPoseTarget=poseTargetAttr)
+        cmds.poseSpaceCommand(self.name, setPoseTarget=[poseIndex, targetIndex])
 
         self.cancelPoseTarget()
         
@@ -227,10 +276,13 @@ class PoseSpaceDeformer(object):
         if not self._poseTarget:
             raise RuntimeError('Pose target should be initialized first')
 
-        (poseTargetAttr, duplicate) = self._poseTarget
+        (poseName, targetName, duplicate) = self._poseTarget
+
+        poseIndex = self.poseIndex(poseName)
+        targetIndex = self.poseTargetIndex(poseName, targetName)
 
         cmds.select(duplicate)
-        cmds.poseSpaceCommand(self.name, updatePoseTarget=poseTargetAttr)
+        cmds.poseSpaceCommand(self.name, updatePoseTarget=[poseIndex, targetIndex])
 
         self.cancelPoseTarget()
 
@@ -240,7 +292,8 @@ class PoseSpaceDeformer(object):
         if not self._poseTarget:
             raise RuntimeError('Pose target should be initialized first')
 
-        (poseTargetAttr, duplicate) = self._poseTarget
+        (poseName, targetName, duplicate) = self._poseTarget
+        self._poseTarget = None
 
         cmds.delete(duplicate)
 

@@ -50,6 +50,7 @@ public:
 
     static MObject          aPose;
     static MObject          aPoseName;
+    static MObject          aPoseWeight;
     static MObject          aPoseJoint;
     static MObject          aPoseJointRot;
     static MObject          aPoseJointRotX;
@@ -58,9 +59,9 @@ public:
     static MObject          aPoseJointFallOff;
     static MObject          aPoseTarget;
     static MObject          aPoseTargetName;
-    static MObject          aPoseEnvelope;
-    static MObject          aPoseComponents;
-    static MObject          aPoseDelta;
+    static MObject          aPoseTargetEnvelope;
+    static MObject          aPoseTargetComponents;
+    static MObject          aPoseTargetDelta;
 
     static MObject          aSkinClusterWeightList;
     static MObject          aSkinClusterWeights;

@@ -25,15 +25,9 @@ namespace ErrorStr
 
     conststr PSDDeformerNotProvided             = "PoseSpaceDeformer was not provided";
     conststr PSDMeshNotSelected                 = "Mesh was not selected";
-    conststr PSDJointsNotProvided               = "Joints were not provided";
     conststr PSDSCNotFound                      = "SkinCluster was not found";
-    conststr PSDCreateFailed                    = "Failed to create poseSpaceDeformer";
-    conststr PSDJointConnectionFailed           = "Couldnt connect joint %s to poseSpaceDeformer";
-    conststr PSDInvalidPoseIndex                = "No pose found at given pose index";
-    conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index";
-    conststr PSDNoJointConn                     = "No joint is connected at index %d";
-    conststr PSDPoseDeleteFailed                = "Failed to delete pose";
-    conststr PSDPoseTargetDeleteFailed          = "Failed to delete pose target";
+    conststr PSDInvalidPoseIndex                = "No pose found at given pose index %d";
+    conststr PSDInvalidTargetIndex              = "No poseTarget found at given target index %d";
     conststr PSDInvalidPoseTarget               = "Posed mesh and mesh in poseSpaceDeformer differ in vertex count. Failed to add pose";
     conststr PSDInvalidTargetDelta              = "Invalid pose target delta when updating poseTarget";
     conststr PSDPoseTargetDoesntDiffer          = "Posed mesh is similar to mesh in poseSpaceDeformer. Failed to add pose target";
@@ -54,10 +48,10 @@ namespace ErrorStr
         if ( MString(message) != "" )                   \
         {                                               \
             MString f = FUNCLINE;                       \
-            char buf[1024];                             \
-            sprintf(buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
-            MGlobal::displayError(buf);                 \
-            cerr << buf << "\n";                        \
+            char _buf[1024];                             \
+            sprintf(_buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
+            MGlobal::displayError(_buf);                 \
+            cerr << _buf << "\n";                        \
         }                                               \
         return status;                                  \
     }

@@ -45,6 +45,7 @@ MObject PoseSpaceDeformer::aJointRotZ;
 
 MObject PoseSpaceDeformer::aPose;
 MObject PoseSpaceDeformer::aPoseName;
+MObject PoseSpaceDeformer::aPoseWeight;
 MObject PoseSpaceDeformer::aPoseJoint;
 MObject PoseSpaceDeformer::aPoseJointRot;
 MObject PoseSpaceDeformer::aPoseJointRotX;
@@ -53,9 +54,9 @@ MObject PoseSpaceDeformer::aPoseJointRotZ;
 MObject PoseSpaceDeformer::aPoseJointFallOff;
 MObject PoseSpaceDeformer::aPoseTarget;
 MObject PoseSpaceDeformer::aPoseTargetName;
-MObject PoseSpaceDeformer::aPoseEnvelope;
-MObject PoseSpaceDeformer::aPoseComponents;
-MObject PoseSpaceDeformer::aPoseDelta;
+MObject PoseSpaceDeformer::aPoseTargetEnvelope;
+MObject PoseSpaceDeformer::aPoseTargetComponents;
+MObject PoseSpaceDeformer::aPoseTargetDelta;
 
 MObject PoseSpaceDeformer::aSkinClusterWeightList;
 MObject PoseSpaceDeformer::aSkinClusterWeights;
@@ -99,31 +100,33 @@ MStatus PoseSpaceDeformer::initialize()
 
     aPoseName = tAttr.create("poseName", "pn", MFnData::kString);
 
+    aPoseWeight = nAttr.create("poseWeight", "pw", MFnNumericData::kFloat, 0.f);
+
     aPoseJointRotX = uAttr.create("poseJointRotX", "pjrx", MFnUnitAttribute::kAngle);
     aPoseJointRotY = uAttr.create("poseJointRotY", "pjry", MFnUnitAttribute::kAngle);
     aPoseJointRotZ = uAttr.create("poseJointRotZ", "pjrz", MFnUnitAttribute::kAngle);
     aPoseJointRot = nAttr.create("poseJointRot", "pjr", aPoseJointRotX, aPoseJointRotY, aPoseJointRotZ);
-    aPoseJointFallOff = nAttr.create("poseJointFallOff", "pjf", MFnNumericData::kFloat, 90.f);
+    aPoseJointFallOff = nAttr.create("poseJointFallOff", "pjf", MFnNumericData::kFloat, 45.f);
     aPoseJoint = cAttr.create("poseJoint", "pj");
     cAttr.setArray(true);
     cAttr.addChild(aPoseJointRot);
     cAttr.addChild(aPoseJointFallOff);
 
     aPoseTargetName = tAttr.create("poseTargetName", "ptn", MFnData::kString);
-    aPoseEnvelope = nAttr.create("poseEnvelope", "pte", MFnNumericData::kFloat, 1.f);
-    aPoseComponents = tAttr.create("poseComponents", "ptc", MFnData::kIntArray);
-    aPoseDelta = tAttr.create("poseDelta", "ptd", MFnData::kPointArray);
+    aPoseTargetEnvelope = nAttr.create("poseTargetEnvelope", "pte", MFnNumericData::kFloat, 1.f);
+    aPoseTargetComponents = tAttr.create("poseTargetComponents", "ptc", MFnData::kIntArray);
+    aPoseTargetDelta = tAttr.create("poseTargetDelta", "ptd", MFnData::kPointArray);
     aPoseTarget = cAttr.create("poseTarget", "pt");
     cAttr.setArray(true);
     cAttr.addChild(aPoseTargetName);
-    cAttr.addChild(aPoseEnvelope);
-    cAttr.addChild(aPoseComponents);
-    cAttr.addChild(aPoseDelta);
+    cAttr.addChild(aPoseTargetEnvelope);
+    cAttr.addChild(aPoseTargetComponents);
+    cAttr.addChild(aPoseTargetDelta);
 
     aPose = cAttr.create("pose", "p");
     cAttr.setArray(true);
     cAttr.addChild(aPoseName);
-    cAttr.addChild(aPoseEnvelope);
+    cAttr.addChild(aPoseWeight);
     cAttr.addChild(aPoseJoint);
     cAttr.addChild(aPoseTarget);
     addAttribute(aPose);
@@ -156,6 +159,9 @@ MStatus PoseSpaceDeformer::setDependentsDirty(  const MPlug& plugBeingDirtied,
     if (plugBeingDirtied == aPose ||
         plugBeingDirtied == aPoseJoint ||
         plugBeingDirtied == aPoseJointRot ||
+        plugBeingDirtied == aPoseJointRotX ||
+        plugBeingDirtied == aPoseJointRotY ||
+        plugBeingDirtied == aPoseJointRotZ ||        
         plugBeingDirtied == aPoseJointFallOff )
         _posesDirty = true;
 
@@ -422,7 +428,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             for (unsigned i = 0; i < n; ++i)
                 for (unsigned j = 0; j < n; ++j)
                 {
-                    a(i, j) = _pose2PoseWeights[i][j];
+                    a(i, j) = (float)_pose2PoseWeights[i][j];
                     b(i, j) = i == j;
                 }
 
@@ -591,6 +597,9 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             weight += wt;
         }
 
+        if ( weight < 0 )
+            weight = 0;
+
 #ifdef _DEBUG
         if (debug)
         {
@@ -613,6 +622,10 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         int poseIndex = poseArrHnd.elementIndex();
         MDataHandle poseHnd = poseArrHnd.inputValue();
 
+        // Set pose weights
+        MDataHandle poseWtHnd = poseHnd.child(aPoseWeight);
+        poseWtHnd.setFloat((float)poseWeights[i]);
+
         if (poseWeights[i] < FLOAT_TOLERANCE)
             continue;
 
@@ -621,17 +634,17 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         {
             MDataHandle poseTargetHnd = poseTargetArrHnd.inputValue();
 
-            handle = poseTargetHnd.child(aPoseEnvelope);
-            float poseEnv = handle.asFloat();
+            handle = poseTargetHnd.child(aPoseTargetEnvelope);
+            float targetEnv = handle.asFloat();
 
-            double poseWt = poseEnv * poseWeights[i];
+            double poseWt = targetEnv * poseWeights[i];
 
-            handle = poseTargetHnd.child(aPoseComponents);
+            handle = poseTargetHnd.child(aPoseTargetComponents);
             obj = handle.data();
             MFnIntArrayData fnIntArrData(obj);
             MIntArray components = fnIntArrData.array();
 
-            handle = poseTargetHnd.child(aPoseDelta);
+            handle = poseTargetHnd.child(aPoseTargetDelta);
             obj = handle.data();
             MFnVectorArrayData fnVectorArrData(obj);
             MVectorArray delta = fnVectorArrData.array();
