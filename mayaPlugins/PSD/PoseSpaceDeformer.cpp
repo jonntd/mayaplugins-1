@@ -52,6 +52,7 @@ MObject PoseSpaceDeformer::aPoseJointRotY;
 MObject PoseSpaceDeformer::aPoseJointRotZ;
 MObject PoseSpaceDeformer::aPoseJointFallOff;
 MObject PoseSpaceDeformer::aPoseTarget;
+MObject PoseSpaceDeformer::aPoseTargetName;
 MObject PoseSpaceDeformer::aPoseEnvelope;
 MObject PoseSpaceDeformer::aPoseComponents;
 MObject PoseSpaceDeformer::aPoseDelta;
@@ -108,11 +109,13 @@ MStatus PoseSpaceDeformer::initialize()
     cAttr.addChild(aPoseJointRot);
     cAttr.addChild(aPoseJointFallOff);
 
+    aPoseTargetName = tAttr.create("poseTargetName", "ptn", MFnData::kString);
     aPoseEnvelope = nAttr.create("poseEnvelope", "pte", MFnNumericData::kFloat, 1.f);
     aPoseComponents = tAttr.create("poseComponents", "ptc", MFnData::kIntArray);
     aPoseDelta = tAttr.create("poseDelta", "ptd", MFnData::kPointArray);
     aPoseTarget = cAttr.create("poseTarget", "pt");
     cAttr.setArray(true);
+    cAttr.addChild(aPoseTargetName);
     cAttr.addChild(aPoseEnvelope);
     cAttr.addChild(aPoseComponents);
     cAttr.addChild(aPoseDelta);

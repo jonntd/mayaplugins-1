@@ -57,6 +57,7 @@ public:
     static MObject          aPoseJointRotZ;
     static MObject          aPoseJointFallOff;
     static MObject          aPoseTarget;
+    static MObject          aPoseTargetName;
     static MObject          aPoseEnvelope;
     static MObject          aPoseComponents;
     static MObject          aPoseDelta;
