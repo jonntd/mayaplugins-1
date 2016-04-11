@@ -36,7 +36,7 @@ PSD Setup:
     sys.path.append('mayaPlugins/PSD')
     from psd import PoseSpaceDeformer
 
-
+    <Create skinCluster on mesh>
 
     # Create PSD
     psd = PoseSpaceDeformer.create('psd')
@@ -63,6 +63,10 @@ PSD Setup:
     print psd.poseWeight('pose1')
     print psd.poseWeight('pose2')
 
+    # Set to pose
+    psd.setToPose('pose1')
+    psd.setToPose('pose2')
+
     # Add new pose
     psd.addPose('pose3')
     cmds.rotate( 0, 42, 0, 'joint2', r=1 )
@@ -70,11 +74,18 @@ PSD Setup:
 
     # Add joint to pose
     psd.addPoseJoints('pose3', 'joint1')
+
     print psd.poseJoints('pose3')
+
+    # Set to pose
+    psd.setToPose('pose1')
+    psd.setToPose('pose2')
+    psd.setToPose('pose3')
 
     # Delete pose
     print psd.poseNames()
     psd.deletePose('pose3')
+
     print psd.poseNames()
 
     cmds.rotate( 0, -42, 0, 'joint2', r=1 )
@@ -83,7 +94,12 @@ PSD Setup:
     psd.initPoseTarget('pose2', 'target1')
     <Edit target in viewport>
     psd.setPoseTarget()
+
     print psd.poseTargets('pose2')
+    cmds.aliasAttr(psd.name, q=1)
+    cmds.getAttr(psd.name+'.pose2_target1')
+    cmds.setAttr(psd.name+'.pose2_target1', 0.5)
+    cmds.setAttr(psd.name+'.pose2_target1', 1)
 
     # Reset pose target
     psd.initPoseTarget('pose2', 'target1')
@@ -103,12 +119,21 @@ PSD Setup:
     psd.initPoseTarget('pose2', 'target2')
     <Edit target in viewport>
     psd.setPoseTarget()
+
     print psd.poseTargets('pose2')
+    cmds.aliasAttr(psd.name, q=1)
+    cmds.getAttr(psd.name+'.pose2_target2')
+    cmds.setAttr(psd.name+'.pose2_target2', 0.5)
+    cmds.setAttr(psd.name+'.pose2_target2', 1)
+
 
     # Delete pose target
     print psd.poseTargets('pose2')
     psd.deletePoseTarget('pose2', 'target2')
+
     print psd.poseTargets('pose2')
+
+
 
 
 

@@ -94,6 +94,7 @@ MStatus PoseSpaceDeformer::initialize()
     aJointRot = nAttr.create("jointRot", "jr", aJointRotX, aJointRotY, aJointRotZ);
 
     aJoint = cAttr.create("joint", "j");
+    cAttr.setHidden(true);
     cAttr.setArray(true);
     cAttr.addChild(aJointRot);
     addAttribute(aJoint);
@@ -108,14 +109,18 @@ MStatus PoseSpaceDeformer::initialize()
     aPoseJointRot = nAttr.create("poseJointRot", "pjr", aPoseJointRotX, aPoseJointRotY, aPoseJointRotZ);
     aPoseJointFallOff = nAttr.create("poseJointFallOff", "pjf", MFnNumericData::kFloat, 45.f);
     aPoseJoint = cAttr.create("poseJoint", "pj");
+    cAttr.setHidden(true);
     cAttr.setArray(true);
     cAttr.addChild(aPoseJointRot);
     cAttr.addChild(aPoseJointFallOff);
 
     aPoseTargetName = tAttr.create("poseTargetName", "ptn", MFnData::kString);
     aPoseTargetEnvelope = nAttr.create("poseTargetEnvelope", "pte", MFnNumericData::kFloat, 1.f);
+    nAttr.setKeyable(true);
     aPoseTargetComponents = tAttr.create("poseTargetComponents", "ptc", MFnData::kIntArray);
+    tAttr.setHidden(true);
     aPoseTargetDelta = tAttr.create("poseTargetDelta", "ptd", MFnData::kPointArray);
+    tAttr.setHidden(true);
     aPoseTarget = cAttr.create("poseTarget", "pt");
     cAttr.setArray(true);
     cAttr.addChild(aPoseTargetName);
@@ -133,10 +138,12 @@ MStatus PoseSpaceDeformer::initialize()
 
     aSkinClusterWeights = nAttr.create("skinClusterWeights", "scw", MFnNumericData::kDouble);
     nAttr.setArray(true);
+    nAttr.setHidden(true);
 
     aSkinClusterWeightList = cAttr.create("skinClusterWeightList", "scwl");
     cAttr.setArray(true);
     cAttr.addChild(aSkinClusterWeights);
+    cAttr.setHidden(true);
     addAttribute(aSkinClusterWeightList);
 
 
@@ -285,8 +292,9 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
                     if (iter2 == _poses[j].end())
                     {
-                        weightij = -1;
-                        weightji = -1;
+                        // Distance cannot be found between poses because of different poseJoints between them
+                        weightij = 0;
+                        weightji = 0;
                         break;
                     }
                     else
@@ -337,12 +345,6 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                     }
                 }
 
-                // If distance cannot be found between poses because of different poseJoint, weight them 1
-                if (weightij < 0)
-                {
-                    weightij = 1;
-                    weightji = 1;
-                }
 
 #ifdef _DEBUG
                 if (debug)

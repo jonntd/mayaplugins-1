@@ -157,8 +157,21 @@ class PoseSpaceDeformer(object):
 
             # Set pose joint values
             rot = cmds.getAttr(conns[0]+'.rotate')
-            print 'updatePoseJoints: ', ji, conns[0], rot
             cmds.setAttr('{}.poseJoint[{}].poseJointRot'.format(poseAttr, ji), *rot[0])
+
+    def setToPose(self, poseName):
+        '''Set the joints to pose joint rotations'''
+
+        poseAttr = self.poseAttr(poseName)
+
+        jointIndices = cmds.getAttr('{}.poseJoint'.format(poseAttr), mi=1) or []
+        for ji in jointIndices:
+
+            rot = cmds.getAttr('{}.poseJoint[{}].poseJointRot'.format(poseAttr, ji))
+
+            # Set joint values
+            conns = cmds.listConnections('{}.joint[{}].jointRot'.format(self.name, ji))
+            cmds.setAttr(conns[0]+'.rotate', *rot[0])
 
 
     def setPoseFallOff(self, poseName, fallOff):
@@ -261,6 +274,8 @@ class PoseSpaceDeformer(object):
             poseTargetAttr = '{}.poseTarget[{}]'.format(poseAttr, index)
             cmds.setAttr('{}.poseTargetName'.format(poseTargetAttr), targetName, type='string')
 
+            cmds.aliasAttr(poseName+'_'+targetName, poseTargetAttr+'.poseTargetEnvelope')
+
         poseIndex = self.poseIndex(poseName)
         targetIndex = index
 
@@ -304,5 +319,12 @@ class PoseSpaceDeformer(object):
         '''Delete pose target'''
 
         targetAttr = self.poseTargetAttr(poseName, targetName)
+
+        # Remove alias
+        aliasAttrs = cmds.aliasAttr(self.name, q=1) or []
+        envAttr = targetAttr+'.poseTargetEnvelope'
+        for attr in aliasAttrs:
+            if envAttr.endswith(attr):
+                cmds.aliasAttr(envAttr, rm=1)
 
         cmds.removeMultiInstance(targetAttr, b=1)
