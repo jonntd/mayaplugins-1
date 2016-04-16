@@ -21,7 +21,7 @@ class PoseSpaceDeformer(object):
 
         sel = cmds.ls(sl=1)
         if not sel:
-            return RuntimeError('Objects should be selected to create PSD')
+            raise RuntimeError('Objects should be selected to create PSD')
 
         if cmds.nodeType(sel[0]) == 'transform':
             sel = cmds.listRelatives(sel[0], c=1)
@@ -50,7 +50,7 @@ class PoseSpaceDeformer(object):
         if cmds.objExists(name) and cmds.nodeType(name) == NODETYPE:
             self.name = name
             return
-        raise RuntimeError('%s is not of type %s'.format(name, NODETYPE))
+        raise RuntimeError('{} is not of type {}'.format(name, NODETYPE))
     
     def poseNames(self):
         '''Get pose names'''
@@ -85,8 +85,13 @@ class PoseSpaceDeformer(object):
     def poseWeight(self, poseName):
         
         poseAttr = self.poseAttr(poseName)
-        return cmds.getAttr(poseAttr+'.poseWeight')
-
+        return cmds.getAttr('{}.poseWeight'.format(poseAttr))
+        
+    def printPoseWeights(self):
+        
+        for p in self.poseNames():
+            print '{}: {}'.format(p, self.poseWeight(p))
+        
     def addPose(self, poseName):
         '''Add new pose'''
 
@@ -100,7 +105,6 @@ class PoseSpaceDeformer(object):
             index = poseIndices[-1] + 1
         
         cmds.setAttr('{}.pose[{}].poseName'.format(self.name, index), poseName, type='string')
-
 
     def addPoseJoints(self, poseName, joints):
         '''Get joints that define the pose'''
@@ -245,6 +249,7 @@ class PoseSpaceDeformer(object):
         self._poseTarget = (poseName, targetName, duplicate)
         
         cmds.warning('Edit the target geometry')
+        return duplicate[0]
 
     def setPoseTarget(self):
         '''Set pose target after initializing'''
@@ -314,6 +319,7 @@ class PoseSpaceDeformer(object):
 
         defGeom = cmds.deformer(self.name, q=1, g=1)
         cmds.showHidden(defGeom)
+        cmds.select(defGeom)
 
     def deletePoseTarget(self, poseName, targetName):
         '''Delete pose target'''

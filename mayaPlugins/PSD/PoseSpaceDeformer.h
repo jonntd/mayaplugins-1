@@ -27,6 +27,8 @@ public:
     MStatus setDependentsDirty( const MPlug& plugBeingDirtied, 
                                 MPlugArray& affectedPlugs );
 
+    MStatus compute(const MPlug& plug, MDataBlock& block);
+
     MStatus deform( MDataBlock&     block, 
                     MItGeometry&    itGeo, 
                     const MMatrix&  world, 
@@ -67,6 +69,9 @@ public:
     static MObject          aSkinClusterWeights;
 
 
+private:
+
+    MStatus calcPoseWeights( MDataBlock& block );
 
 
 private:
@@ -86,6 +91,7 @@ private:
     bool                        _posesDirty;
     std::vector<MDoubleArray>   _pose2PoseWeights;
     std::vector<PoseJointMap>   _poses;
+    MDoubleArray                _poseWeights;
 
 };
 

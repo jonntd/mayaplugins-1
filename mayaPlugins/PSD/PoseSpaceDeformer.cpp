@@ -151,6 +151,9 @@ MStatus PoseSpaceDeformer::initialize()
     attributeAffects(aPose, outputGeom);
     attributeAffects(aSkinClusterWeightList, outputGeom);
 
+    attributeAffects(aJoint, aPoseWeight);
+    attributeAffects(aPoseJoint, aPoseWeight);
+
     return MStatus::kSuccess;
 
 }
@@ -172,13 +175,19 @@ MStatus PoseSpaceDeformer::setDependentsDirty(  const MPlug& plugBeingDirtied,
         plugBeingDirtied == aPoseJointFallOff )
         _posesDirty = true;
 
-    return MS::kSuccess;
+    return MPxDeformerNode::setDependentsDirty(plugBeingDirtied, affectedPlugs);
 }
 
-MStatus PoseSpaceDeformer::deform(  MDataBlock&     block, 
-                                    MItGeometry&    itGeo, 
-                                    const MMatrix&  world, 
-                                    unsigned int    geomIndex )
+MStatus PoseSpaceDeformer::compute(const MPlug& plug, MDataBlock& block)
+{
+    MStatus stat = calcPoseWeights(block);
+    MCheckStatus(stat, "");
+
+    return MPxDeformerNode::compute(plug, block);
+}
+
+
+MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
 {
     MStatus stat;
     MString msg;
@@ -189,12 +198,6 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     handle = block.inputValue(aDebug);
     bool debug = handle.asBool();
 #endif
-
-    handle = block.inputValue(envelope);
-    float env = handle.asFloat();
-    if (env < FLOAT_TOLERANCE)
-        return MS::kSuccess;
-
 
     // If poses are dirty, recalculate pose2Pose weights
     if (_posesDirty)
@@ -248,7 +251,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             return MS::kSuccess;
         _pose2PoseWeights.clear();
         _pose2PoseWeights.resize(_poses.size());
-        for (int i = 0; i < _poses.size(); ++i)
+        for (unsigned i = 0; i < _poses.size(); ++i)
         {
             _pose2PoseWeights[i].setLength((unsigned)_poses.size());
 
@@ -268,7 +271,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
                 break;
 
             // Other poses
-            for (int j = i+1; j < _poses.size(); ++j)
+            for (unsigned j = i+1; j < _poses.size(); ++j)
             {
                 _pose2PoseWeights[j].setLength((unsigned)_poses.size());
 
@@ -370,13 +373,13 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         {
             char buf[1024] = "";
             MDebugPrint("Pose2PoseWts:================");
-            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+            for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
                 sprintf(buf, "%s%8d", buf, i);
             MDebugPrint(buf);
-            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+            for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
             {
                 sprintf(buf, "%2d", i);
-                for (int j = 0; j < _pose2PoseWeights.size(); ++j)
+                for (unsigned j = 0; j < _pose2PoseWeights.size(); ++j)
                     sprintf(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
                 MDebugPrint(buf);
             }
@@ -454,13 +457,13 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         {
             char buf[1024] = "";
             MDebugPrint("Pose2PoseWts:================");
-            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+            for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
                 sprintf(buf, "%s%8d", buf, i);
             MDebugPrint(buf);
-            for (int i = 0; i < _pose2PoseWeights.size(); ++i)
+            for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
             {
                 sprintf(buf, "%2d", i);
-                for (int j = 0; j < _pose2PoseWeights.size(); ++j)
+                for (unsigned j = 0; j < _pose2PoseWeights.size(); ++j)
                     sprintf(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
                 MDebugPrint(buf);
             }
@@ -468,6 +471,8 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         }
 #endif
     }
+
+    _poseWeights.setLength((unsigned)_poses.size());
 
     // No poses, return
     if (_poses.size() == 0)
@@ -500,7 +505,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
 
     // pose-2-currJoints weights: For each pose, check how far is poseJointRotations are from current jointRotations
     MDoubleArray pose2CurrJointWeights((unsigned)_poses.size());
-    for (int i = 0; i < _poses.size(); ++i)
+    for (unsigned i = 0; i < _poses.size(); ++i)
     {
         double weight = 1;
         for (PoseJointMap::const_iterator iter = _poses[i].begin(); iter != _poses[i].end(); ++iter)
@@ -575,12 +580,11 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
     }
 
 
-    // Calculate final weights for each pose, from pose-2-currJoint weights re-weighted by pose2PoseWeights
-    MDoubleArray poseWeights((unsigned)_poses.size());
-    for (int i = 0; i < _poses.size(); ++i)
+    // Calculate final weights for each pose, from pose-2-currJoint weights re-weighted by pose2PoseWeights    
+    for (unsigned i = 0; i < _poses.size(); ++i)
     {
         double weight = 0;
-        for (int j = 0; j < _poses.size(); ++j)
+        for (unsigned j = 0; j < _poses.size(); ++j)
         {
             double wt = pose2CurrJointWeights[j] * _pose2PoseWeights[j][i];
 
@@ -612,23 +616,54 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             MDebugPrint(msg);
         }
 #endif
-        poseWeights[i] = weight;
+        _poseWeights[i] = weight;
     }
 
 
-    // Get delta from weighted poses
+    // Save final pose weights in plug
+    MArrayDataHandle poseArrHnd = block.outputArrayValue(aPose);
+    for(unsigned i = 0; i < poseArrHnd.elementCount(); ++i, poseArrHnd.next())
+    {
+        MDataHandle poseHnd = poseArrHnd.outputValue();
+        MDataHandle wtHnd = poseHnd.child(aPoseWeight);
+
+        wtHnd.setFloat((float)_poseWeights[i]);
+        wtHnd.setClean();
+    }
+
+    return MS::kSuccess;
+}
+
+
+MStatus PoseSpaceDeformer::deform(  MDataBlock&     block, 
+                                    MItGeometry&    itGeo, 
+                                    const MMatrix&  world, 
+                                    unsigned int    geomIndex )
+{
+    MStatus stat;
+    MString msg;
+    MDataHandle handle;
+    MObject obj;
+
+#ifdef _DEBUG
+    handle = block.inputValue(aDebug);
+    bool debug = handle.asBool();
+#endif
+
+    handle = block.inputValue(envelope);
+    float env = handle.asFloat();
+    if (env < FLOAT_TOLERANCE)
+        return MS::kSuccess;
+
+
     MArrayDataHandle poseArrHnd = block.inputArrayValue(aPose);
     VectorMap deltaMap;
     for(unsigned i = 0; i < poseArrHnd.elementCount(); ++i, poseArrHnd.next())
     {
         int poseIndex = poseArrHnd.elementIndex();
         MDataHandle poseHnd = poseArrHnd.inputValue();
-
-        // Set pose weights
-        MDataHandle poseWtHnd = poseHnd.child(aPoseWeight);
-        poseWtHnd.setFloat((float)poseWeights[i]);
-
-        if (poseWeights[i] < FLOAT_TOLERANCE)
+        
+        if (_poseWeights[i] < FLOAT_TOLERANCE)
             continue;
 
         MArrayDataHandle poseTargetArrHnd(poseHnd.child(aPoseTarget));
@@ -639,7 +674,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             handle = poseTargetHnd.child(aPoseTargetEnvelope);
             float targetEnv = handle.asFloat();
 
-            double poseWt = targetEnv * poseWeights[i];
+            double poseWt = targetEnv * _poseWeights[i];
 
             handle = poseTargetHnd.child(aPoseTargetComponents);
             obj = handle.data();
