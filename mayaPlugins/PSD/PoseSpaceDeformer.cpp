@@ -119,7 +119,7 @@ MStatus PoseSpaceDeformer::initialize()
     nAttr.setKeyable(true);
     aPoseTargetComponents = tAttr.create("poseTargetComponents", "ptc", MFnData::kIntArray);
     tAttr.setHidden(true);
-    aPoseTargetDelta = tAttr.create("poseTargetDelta", "ptd", MFnData::kPointArray);
+    aPoseTargetDelta = tAttr.create("poseTargetDelta", "ptd", MFnData::kVectorArray);
     tAttr.setHidden(true);
     aPoseTarget = cAttr.create("poseTarget", "pt");
     cAttr.setArray(true);
@@ -249,6 +249,8 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
         // pose-2-pose weights: For each pose, check how far is its poseJointRotations are from other poses
         if (_poses.size() == 0)
             return MS::kSuccess;
+
+
         _pose2PoseWeights.clear();
         _pose2PoseWeights.resize(_poses.size());
         for (unsigned i = 0; i < _poses.size(); ++i)
@@ -437,11 +439,20 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                     b(i, j) = i == j;
                 }
 
-            //std::cout << "Num poses:\n" << n << endl;
-            //std::cout << "Here is the matrix a:\n" << a << endl;
-            //std::cout << "Here is the right hand side b:\n" << b << endl;
+#ifdef _DEBUG
+            if (debug)
+            {
+                cerr << "Num poses:\n" << n << endl;
+                cerr << "Here is the matrix a:\n" << a << endl;
+                cerr << "Here is the right hand side b:\n" << b << endl;
+            }
+#endif
             MatrixXf x = a.colPivHouseholderQr().solve(b);
-            //std::cout << "The solution is:\n" << x << endl;
+
+#ifdef _DEBUG
+            if (debug)
+                cerr << "The solution is:\n" << x << endl;
+#endif
 
             for (unsigned i = 0; i < n; ++i)
                 for (unsigned j = 0; j < n; ++j)
@@ -656,15 +667,39 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         return MS::kSuccess;
 
 
+
     MArrayDataHandle poseArrHnd = block.inputArrayValue(aPose);
+
+#ifdef _DEBUG
+        if (debug)
+        {
+            msg += "NumPoses: ";
+            msg += poseArrHnd.elementCount();
+            msg += ", NumWeights: ";
+            msg += _poseWeights.length();
+            MDebugPrint(msg);
+        }
+#endif
+
     VectorMap deltaMap;
     for(unsigned i = 0; i < poseArrHnd.elementCount(); ++i, poseArrHnd.next())
     {
         int poseIndex = poseArrHnd.elementIndex();
         MDataHandle poseHnd = poseArrHnd.inputValue();
-        
-        if (_poseWeights[i] < FLOAT_TOLERANCE)
+
+        if (i >= _poseWeights.length() || _poseWeights[i] < FLOAT_TOLERANCE)
             continue;
+
+#ifdef _DEBUG
+        if (debug)
+        {
+            MString msg = "Posei: ";
+            msg += i;
+            msg += ", weight: ";
+            msg += _poseWeights[i];
+            MDebugPrint(msg);
+        }
+#endif
 
         MArrayDataHandle poseTargetArrHnd(poseHnd.child(aPoseTarget));
         for(unsigned j = 0; j < poseTargetArrHnd.elementCount(); ++j, poseTargetArrHnd.next())
@@ -686,6 +721,16 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             MFnVectorArrayData fnVectorArrData(obj);
             MVectorArray delta = fnVectorArrData.array();
 
+#ifdef _DEBUG
+            if (debug)
+            {
+                MString msg = "components: ";
+                msg += components.length();
+                msg += ", delta: ";
+                msg += delta.length();
+                MDebugPrint(msg);
+        }
+#endif
             for(unsigned j = 0; j < components.length(); ++j)
                 deltaMap[components[j]] += delta[j] * poseWt;
         }
