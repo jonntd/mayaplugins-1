@@ -3,6 +3,7 @@
 
 #include <limits>
 
+
 typedef const char* const conststr;
 
 namespace PluginIDs
@@ -35,6 +36,8 @@ namespace ErrorStr
     conststr RelaxInvalidInput                  = "Relax deformer works on meshes only";
 };
 
+#define SPRINTF     sprintf
+
 #define DEG2RAD(angle)     angle * 3.141592653589793 / 180.0
 #define RAD2DEG(angle)     angle * 180.0 / 3.141592653589793
 
@@ -49,7 +52,7 @@ namespace ErrorStr
         {                                               \
             MString f = FUNCLINE;                       \
             char _buf[1024];                             \
-            sprintf(_buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
+            SPRINTF(_buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
             MGlobal::displayError(_buf);                 \
             cerr << _buf << "\n";                        \
         }                                               \
@@ -62,7 +65,7 @@ namespace ErrorStr
 #define MDebugPrint(message)                            \
     {                                                   \
         char _buf[1024];                                \
-        sprintf(_buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
+        SPRINTF(_buf, "%-70s %s", MString(message).asChar(), FUNCLINE);  \
         MGlobal::displayInfo(_buf);                     \
         cerr << _buf << "\n";                           \
     }

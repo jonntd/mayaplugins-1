@@ -56,14 +56,14 @@ void PoseSpaceCommand::usage()
     str = (" USAGE: - Create and Sets up poseSpaceDeformer (mel)\n" );
     str += ("// ---------------------------------------" );
 
-    sprintf(buf, "\n//   %-70s : ", "Set pose target using selected mesh, pose and target index");
+    SPRINTF(buf, "\n//   %-70s : ", "Set pose target using selected mesh, pose and target index");
     str += buf;
-    sprintf(buf, "%s -%s <poseIndex> <targetIndex> <psdNode>", cmd, LFLAG_SETPOSETARGET);
+    SPRINTF(buf, "%s -%s <poseIndex> <targetIndex> <psdNode>", cmd, LFLAG_SETPOSETARGET);
     str += buf;
 
-    sprintf(buf, "\n//   %-70s : ", "Update pose target using selected mesh, pose and target index");
+    SPRINTF(buf, "\n//   %-70s : ", "Update pose target using selected mesh, pose and target index");
     str += buf;
-    sprintf(buf, "%s -%s <poseIndex> <targetIndex> <psdNode>", cmd, LFLAG_UPDATEPOSETARGET);
+    SPRINTF(buf, "%s -%s <poseIndex> <targetIndex> <psdNode>", cmd, LFLAG_UPDATEPOSETARGET);
     str += buf;
 
     MGlobal::displayInfo( str );
@@ -72,14 +72,14 @@ void PoseSpaceCommand::usage()
     str = ("\n USAGE: - Create and Sets up poseSpaceDeformer (python)\n" );
     str += ("// ---------------------------------------" );
 
-    sprintf(buf, "\n//   %-70s : ", "Reset pose target using selected mesh, pose and target index");
+    SPRINTF(buf, "\n//   %-70s : ", "Reset pose target using selected mesh, pose and target index");
     str += buf;
-    sprintf(buf, "cmds.%s( <psdNode>, %s=[<poseIndex>, <targetIndex>[] )", cmd, LFLAG_SETPOSETARGET);
+    SPRINTF(buf, "cmds.%s( <psdNode>, %s=[<poseIndex>, <targetIndex>[] )", cmd, LFLAG_SETPOSETARGET);
     str += buf;
 
-    sprintf(buf, "\n//   %-70s : ", "Update pose target using selected mesh, pose and target index");
+    SPRINTF(buf, "\n//   %-70s : ", "Update pose target using selected mesh, pose and target index");
     str += buf;
-    sprintf(buf, "cmds.%s( <psdNode>, %s=[<poseIndex>, <targetIndex>] )", cmd, LFLAG_UPDATEPOSETARGET);
+    SPRINTF(buf, "cmds.%s( <psdNode>, %s=[<poseIndex>, <targetIndex>] )", cmd, LFLAG_UPDATEPOSETARGET);
     str += buf;
 
     MGlobal::displayInfo( str );    
@@ -248,7 +248,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
         if (found == false)
         {
             char buf[1024];
-            sprintf(buf, ErrorStr::PSDInvalidPoseIndex, _poseIndex);
+            SPRINTF(buf, ErrorStr::PSDInvalidPoseIndex, _poseIndex);
             MReturnFailure(buf);
         }
     }
@@ -275,7 +275,7 @@ MStatus PoseSpaceCommand::setPoseTarget()
         if (found == false)
         {
             char buf[1024];
-            sprintf(buf, ErrorStr::PSDInvalidTargetIndex, _targetIndex);
+            SPRINTF(buf, ErrorStr::PSDInvalidTargetIndex, _targetIndex);
             MReturnFailure(buf);
         }
     }

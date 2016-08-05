@@ -52,6 +52,7 @@ public:
 
     static MObject          aPose;
     static MObject          aPoseName;
+    static MObject          aPoseEnvelope;
     static MObject          aPoseWeight;
     static MObject          aPoseJoint;
     static MObject          aPoseJointRot;

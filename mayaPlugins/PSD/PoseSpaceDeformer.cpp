@@ -45,6 +45,7 @@ MObject PoseSpaceDeformer::aJointRotZ;
 
 MObject PoseSpaceDeformer::aPose;
 MObject PoseSpaceDeformer::aPoseName;
+MObject PoseSpaceDeformer::aPoseEnvelope;
 MObject PoseSpaceDeformer::aPoseWeight;
 MObject PoseSpaceDeformer::aPoseJoint;
 MObject PoseSpaceDeformer::aPoseJointRot;
@@ -101,6 +102,9 @@ MStatus PoseSpaceDeformer::initialize()
 
     aPoseName = tAttr.create("poseName", "pn", MFnData::kString);
 
+    aPoseEnvelope = nAttr.create("poseEnvelope", "pe", MFnNumericData::kFloat, 1.f);
+    nAttr.setKeyable(true);
+
     aPoseWeight = nAttr.create("poseWeight", "pw", MFnNumericData::kFloat, 0.f);
 
     aPoseJointRotX = uAttr.create("poseJointRotX", "pjrx", MFnUnitAttribute::kAngle);
@@ -131,6 +135,7 @@ MStatus PoseSpaceDeformer::initialize()
     aPose = cAttr.create("pose", "p");
     cAttr.setArray(true);
     cAttr.addChild(aPoseName);
+    cAttr.addChild(aPoseEnvelope);
     cAttr.addChild(aPoseWeight);
     cAttr.addChild(aPoseJoint);
     cAttr.addChild(aPoseTarget);
@@ -376,13 +381,13 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
             char buf[1024] = "";
             MDebugPrint("Pose2PoseWts:================");
             for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
-                sprintf(buf, "%s%8d", buf, i);
+                SPRINTF(buf, "%s%8d", buf, i);
             MDebugPrint(buf);
             for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
             {
-                sprintf(buf, "%2d", i);
+                SPRINTF(buf, "%2d", i);
                 for (unsigned j = 0; j < _pose2PoseWeights.size(); ++j)
-                    sprintf(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
+                    SPRINTF(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
                 MDebugPrint(buf);
             }
             MDebugPrint("=============================");
@@ -391,43 +396,6 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
 
         // Re-weight pose2PoseWeights using Scattered Data Interpolation (solve Ax = B)
         {
-#ifdef USEMKL            
-            MKL_INT n = (MKL_INT)_pose2PoseWeights.size();
-            MKL_INT nrhs = (MKL_INT)_pose2PoseWeights.size();
-            MKL_INT lda = n;
-            MKL_INT ldb = nrhs;
-            MKL_INT *ipiv = new MKL_INT[n];
-            double *a = new double[lda*n];
-            double *b = new double[ldb*n];
-
-            for (MKL_INT i = 0; i < n; ++i)
-                for (MKL_INT j = 0; j < n; ++j)
-                {
-                    a[i*n + j] = _pose2PoseWeights[i][j];
-                    b[i*n + j] = i == j;
-                }
-
-            MKL_INT info;
-            dgesv_(&n, &nrhs, a, &lda, ipiv, b, &ldb, &info);
-
-            // Check for the exact singularity
-            if (info > 0)
-            {
-                delete[] ipiv;
-                delete[] a;
-                delete[] b;
-                msg = "No 2 or more poses can have same set of joints and joint values. Failed to calculate pose weights";
-                MReturnFailure(msg);
-            }
-
-            for (MKL_INT i = 0; i < n; ++i)
-                for (MKL_INT j = 0; j < n; ++j)
-                    _pose2PoseWeights[i][j] = b[i*n + j];
-
-            delete[] ipiv;
-            delete[] a;
-            delete[] b;
-#elif USEEIGEN
             unsigned n = (unsigned)_pose2PoseWeights.size();
 
             MatrixXf a(n, n);
@@ -439,26 +407,18 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                     b(i, j) = i == j;
                 }
 
-#ifdef _DEBUG
-            if (debug)
-            {
-                cerr << "Num poses:\n" << n << endl;
-                cerr << "Here is the matrix a:\n" << a << endl;
-                cerr << "Here is the right hand side b:\n" << b << endl;
-            }
-#endif
+            cerr << "Num poses:\n" << n << endl;
+            cerr << "Here is the matrix a:\n" << a << endl;
+            cerr << "Here is the right hand side b:\n" << b << endl;
+
             MatrixXf x = a.colPivHouseholderQr().solve(b);
 
-#ifdef _DEBUG
-            if (debug)
-                cerr << "The solution is:\n" << x << endl;
-#endif
+            cerr << "The solution is:\n" << x << endl;
+
 
             for (unsigned i = 0; i < n; ++i)
                 for (unsigned j = 0; j < n; ++j)
                     _pose2PoseWeights[i][j] = x(i, j);
-
-#endif
         }
 
 
@@ -469,13 +429,13 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
             char buf[1024] = "";
             MDebugPrint("Pose2PoseWts:================");
             for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
-                sprintf(buf, "%s%8d", buf, i);
+                SPRINTF(buf, "%s%8d", buf, i);
             MDebugPrint(buf);
             for (unsigned i = 0; i < _pose2PoseWeights.size(); ++i)
             {
-                sprintf(buf, "%2d", i);
+                SPRINTF(buf, "%2d", i);
                 for (unsigned j = 0; j < _pose2PoseWeights.size(); ++j)
-                    sprintf(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
+                    SPRINTF(buf, "%s%8.3f", buf, _pose2PoseWeights[i][j]);
                 MDebugPrint(buf);
             }
             MDebugPrint("=============================");
@@ -687,7 +647,10 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
         int poseIndex = poseArrHnd.elementIndex();
         MDataHandle poseHnd = poseArrHnd.inputValue();
 
-        if (i >= _poseWeights.length() || _poseWeights[i] < FLOAT_TOLERANCE)
+        handle = poseHnd.child(aPoseEnvelope);
+        float poseEnv = handle.asFloat();
+
+        if (i >= _poseWeights.length() || _poseWeights[i] < FLOAT_TOLERANCE || fabs(poseEnv) < FLOAT_TOLERANCE)
             continue;
 
 #ifdef _DEBUG
@@ -709,7 +672,7 @@ MStatus PoseSpaceDeformer::deform(  MDataBlock&     block,
             handle = poseTargetHnd.child(aPoseTargetEnvelope);
             float targetEnv = handle.asFloat();
 
-            double poseWt = targetEnv * _poseWeights[i];
+            double poseWt = poseEnv * targetEnv * _poseWeights[i];
 
             handle = poseTargetHnd.child(aPoseTargetComponents);
             obj = handle.data();

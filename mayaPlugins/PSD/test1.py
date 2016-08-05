@@ -95,3 +95,10 @@ cmds.attrControlGrp(attribute=psd.name+'.pose[1].poseWeight')
 cmds.showWindow()
 
 
+# Alias to poseEnvelope and poseTargetEnvelope
+cmds.aliasAttr( 'poseEnvAlias', 'psd.pose[0].poseEnvelope' )
+cmds.setAttr('psd.poseEnvAlias', 2)
+
+cmds.aliasAttr( 'poseTargetEnvelopeAlias', 'psd.pose[0].poseTarget[0].poseTargetEnvelope' )
+cmds.getAttr('psd.poseTargetEnvelopeAlias')
+cmds.setAttr('psd.poseTargetEnvelopeAlias', 2)
