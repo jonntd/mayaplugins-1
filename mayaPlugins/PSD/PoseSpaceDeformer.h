@@ -8,10 +8,12 @@
 #include <maya/MTypeId.h>
 #include <maya/MDataBlock.h>
 #include <maya/MVector.h>
+#include <maya/MEulerRotation.h>
 #include <maya/MDoubleArray.h>
 
 
 typedef std::map<int, MVector>  VectorMap;
+typedef std::map<int, MEulerRotation>  RotationMap;
 typedef std::map<int, MMatrix>  MatrixMap;
 
 
@@ -44,6 +46,7 @@ public:
 #endif
 
     static MObject          aJoint;
+    static MObject          aJointAxis;
     static MObject          aJointRot;
     static MObject          aJointRotX;
     static MObject          aJointRotY;
@@ -77,14 +80,16 @@ private:
 
 private:
 
+    static std::map<short, MVector>     AxisVec;
+
     class PoseJoint
     {
     public:
         PoseJoint() {}
-        PoseJoint(MVector _rotation, float _fallOff) : rotation(_rotation), fallOff(_fallOff)   {}
+        PoseJoint(MEulerRotation _rotation, float _fallOff) : rotation(_rotation), fallOff(_fallOff)   {}
 
-        MVector     rotation;
-        float       fallOff;
+        MEulerRotation  rotation;
+        float           fallOff;
     };
 
     typedef std::map<int, PoseJoint>    PoseJointMap;

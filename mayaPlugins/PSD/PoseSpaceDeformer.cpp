@@ -15,6 +15,7 @@ using namespace Eigen;
 #include <maya/MPoint.h>
 #include <maya/MMatrix.h>
 #include <maya/MEulerRotation.h>
+#include <maya/MFnEnumAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
 #include <maya/MFnTypedAttribute.h>
@@ -38,6 +39,7 @@ MObject PoseSpaceDeformer::aDebug;
 #endif
 
 MObject PoseSpaceDeformer::aJoint;
+MObject PoseSpaceDeformer::aJointAxis;
 MObject PoseSpaceDeformer::aJointRot;
 MObject PoseSpaceDeformer::aJointRotX;
 MObject PoseSpaceDeformer::aJointRotY;
@@ -62,6 +64,20 @@ MObject PoseSpaceDeformer::aPoseTargetDelta;
 MObject PoseSpaceDeformer::aSkinClusterWeightList;
 MObject PoseSpaceDeformer::aSkinClusterWeights;
 
+std::map<short, MVector>  PoseSpaceDeformer::AxisVec;
+
+
+enum Axis
+{
+    AXIS_X,
+    AXIS_Y,
+    AXIS_Z,
+    AXIS_NEG_X,
+    AXIS_NEG_Y,
+    AXIS_NEG_Z,
+};
+
+
 
 PoseSpaceDeformer::PoseSpaceDeformer()
 {
@@ -82,6 +98,16 @@ MStatus PoseSpaceDeformer::initialize()
     MFnTypedAttribute tAttr;
     MFnMatrixAttribute mAttr;
     MFnUnitAttribute uAttr;
+    MFnEnumAttribute eAttr;
+
+
+    AxisVec[AXIS_X] = MVector(1,0,0);
+    AxisVec[AXIS_Y] = MVector(0,1,0);
+    AxisVec[AXIS_Z] = MVector(0,0,1);
+    AxisVec[AXIS_NEG_X] = MVector(-1,0,0);
+    AxisVec[AXIS_NEG_Y] = MVector(0,-1,0);
+    AxisVec[AXIS_NEG_Z] = MVector(0,0,-1);
+
 
 
 #ifdef _DEBUG
@@ -94,10 +120,19 @@ MStatus PoseSpaceDeformer::initialize()
     aJointRotZ = uAttr.create("jointRotZ", "jrz", MFnUnitAttribute::kAngle);
     aJointRot = nAttr.create("jointRot", "jr", aJointRotX, aJointRotY, aJointRotZ);
 
+    aJointAxis = eAttr.create("jointAxis", "ja", AXIS_Y );
+    eAttr.addField( "X", AXIS_X );
+    eAttr.addField( "Y", AXIS_Y );
+    eAttr.addField( "Z", AXIS_Z );
+    eAttr.addField( "-X", AXIS_NEG_X );
+    eAttr.addField( "-Y", AXIS_NEG_Y );
+    eAttr.addField( "-Z", AXIS_NEG_Z );
+
     aJoint = cAttr.create("joint", "j");
     cAttr.setHidden(true);
     cAttr.setArray(true);
     cAttr.addChild(aJointRot);
+    cAttr.addChild(aJointAxis);
     addAttribute(aJoint);
 
     aPoseName = tAttr.create("poseName", "pn", MFnData::kString);
@@ -204,6 +239,36 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
     bool debug = handle.asBool();
 #endif
 
+    // Get current joint rotations and axis
+    RotationMap currJointRot;
+    std::map<int, short> jointAxis;
+    MArrayDataHandle jtArrHnd = block.inputArrayValue(aJoint);
+    for (unsigned i = 0; i < jtArrHnd.elementCount(); ++i, jtArrHnd.next())
+    {
+        int jtIdx = jtArrHnd.elementIndex();
+        MDataHandle jtHnd = jtArrHnd.inputValue();
+
+        handle = jtHnd.child(aJointAxis);
+        jointAxis[jtIdx] = handle.asShort();
+
+        handle = jtHnd.child(aJointRot);
+        double3& data = handle.asDouble3();
+        MEulerRotation rot(data[0], data[1], data[2]);
+
+        currJointRot[jtIdx] = rot;
+
+#ifdef _DEBUG
+        if (debug)
+        {
+            MString msg = "CurJoints: jtIdx: ";
+            msg += jtIdx;
+            MDebugPrint(msg);
+        }
+#endif
+    }
+
+
+
     // If poses are dirty, recalculate pose2Pose weights
     if (_posesDirty)
     {
@@ -224,7 +289,7 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                 handle = jtArrHnd.inputValue();
                 handle = handle.child(aPoseJointRot);
                 double3& data = handle.asDouble3();
-                MVector rot(RAD2DEG(data[0]), RAD2DEG(data[1]), RAD2DEG(data[2]));
+                MEulerRotation rot(data[0], data[1], data[2]);
 
                 handle = jtArrHnd.inputValue();
                 handle = handle.child(aPoseJointFallOff);
@@ -310,15 +375,20 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                     else
                     {
                         // PoseJoint of ith pose
-                        MVector rot1 = iter1->second.rotation;
+                        MEulerRotation rot1 = iter1->second.rotation;
                         float fallOff1 = iter1->second.fallOff;
 
                         // PoseJoint of jth pose
-                        MVector rot2 = iter2->second.rotation;
+                        MEulerRotation rot2 = iter2->second.rotation;
                         float fallOff2 = iter2->second.fallOff;
 
-                        // Distance between poseJoint
-                        double dist = (rot1 - rot2).length();
+                        // Angle between poseJoint
+                        short primeAxis = jointAxis[jtIdx];
+                        MVector axisVec = AxisVec[primeAxis];
+                        MVector vrot1 = axisVec * rot1.asMatrix();
+                        MVector vrot2 = axisVec * rot2.asMatrix();
+                        double angle = vrot1.angle(vrot2);
+                        angle = RAD2DEG(angle);
 
 #ifdef _DEBUG
                         if (debug)
@@ -337,19 +407,19 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                             msg += MVector2Str(rot2);
                             msg += ", fallOff2: ";
                             msg += fallOff2;
-                            msg += ", dist: ";
-                            msg += dist;
+                            msg += ", angle: ";
+                            msg += angle;
                             MDebugPrint(msg);
                         }
 #endif
                         // Accumulate pose weight using weight of this joint (dist/fallOff)
-                        if (dist < fallOff2)
-                            weightij *= 1 - dist / fallOff2;
+                        if (angle < fallOff2)
+                            weightij *= 1 - angle / fallOff2;
                         else
                             weightij = 0;
 
-                        if (dist < fallOff1)
-                            weightji *= 1 - dist / fallOff1;
+                        if (angle < fallOff1)
+                            weightji *= 1 - angle / fallOff1;
                         else
                             weightji = 0;
                     }
@@ -449,29 +519,6 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
     if (_poses.size() == 0)
         return MS::kSuccess;
 
-    // Get current joint rotations
-    VectorMap currJointRot;
-    MArrayDataHandle jtArrHnd = block.inputArrayValue(aJoint);
-    for (unsigned i = 0; i < jtArrHnd.elementCount(); ++i, jtArrHnd.next())
-    {
-        int jtIdx = jtArrHnd.elementIndex();
-        MDataHandle jtHnd = jtArrHnd.inputValue();
-
-        handle = jtHnd.child(aJointRot);
-        double3& data = handle.asDouble3();
-        MVector rot(RAD2DEG(data[0]), RAD2DEG(data[1]), RAD2DEG(data[2]));
-
-        currJointRot[jtIdx] = rot;
-
-#ifdef _DEBUG
-        if (debug)
-        {
-            MString msg = "CurJoints: jtIdx: ";
-            msg += jtIdx;
-            MDebugPrint(msg);
-        }
-#endif
-    }
 
 
     // pose-2-currJoints weights: For each pose, check how far is poseJointRotations are from current jointRotations
@@ -484,9 +531,14 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
             int jtIdx = iter->first;
             const PoseJoint& poseJt = iter->second;
 
-            // TODO: Get current joint's rotation and get distance between that and poseJt.rotation and fallOff dist
-            double dist = (currJointRot[jtIdx] - poseJt.rotation).length();
+            // TODO: Get current joint's rotation and get angle between that and poseJt.rotation and fallOff dist
 
+            short primeAxis = jointAxis[jtIdx];
+            MVector axisVec = AxisVec[primeAxis];
+            MVector vrot1 = axisVec * currJointRot[jtIdx].asMatrix();
+            MVector vrot2 = axisVec * poseJt.rotation.asMatrix();
+            double angle = vrot1.angle(vrot2);
+            angle = RAD2DEG(angle);
 #ifdef _DEBUG
             if (debug)
             {
@@ -501,17 +553,18 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                 msg += MVector2Str(poseJt.rotation);
                 msg += ", fallOff: ";
                 msg += poseJt.fallOff;
-
-                msg += ", dist: ";
-                msg += dist;
+                msg += ", angle: ";
+                msg += angle;
                 msg += ", fallOff: ";
                 msg += poseJt.fallOff;
                 MDebugPrint(msg);
             }
+
+  
 #endif
-            if (dist < poseJt.fallOff)
+            if (angle < poseJt.fallOff)
             {
-                double jtWeight = 1 - (dist / poseJt.fallOff);
+                double jtWeight = 1 - (angle / poseJt.fallOff);
                 weight *= jtWeight;
 
 #ifdef _DEBUG                
