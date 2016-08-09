@@ -81,6 +81,7 @@ private:
 private:
 
     static std::map<short, MVector>     AxisVec;
+    static std::map<short, MVector>     UpVec;
 
     class PoseJoint
     {

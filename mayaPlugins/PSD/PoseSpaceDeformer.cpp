@@ -65,6 +65,7 @@ MObject PoseSpaceDeformer::aSkinClusterWeightList;
 MObject PoseSpaceDeformer::aSkinClusterWeights;
 
 std::map<short, MVector>  PoseSpaceDeformer::AxisVec;
+std::map<short, MVector>  PoseSpaceDeformer::UpVec;
 
 
 enum Axis
@@ -107,6 +108,13 @@ MStatus PoseSpaceDeformer::initialize()
     AxisVec[AXIS_NEG_X] = MVector(-1,0,0);
     AxisVec[AXIS_NEG_Y] = MVector(0,-1,0);
     AxisVec[AXIS_NEG_Z] = MVector(0,0,-1);
+
+    UpVec[AXIS_X] = MVector(0,1,0);
+    UpVec[AXIS_Y] = MVector(0,0,1);
+    UpVec[AXIS_Z] = MVector(1,0,0);
+    UpVec[AXIS_NEG_X] = MVector(0,0,-1);
+    UpVec[AXIS_NEG_Y] = MVector(-1,0,0);
+    UpVec[AXIS_NEG_Z] = MVector(0,-1,0);
 
 
 
@@ -383,12 +391,22 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                         float fallOff2 = iter2->second.fallOff;
 
                         // Angle between poseJoint
+                        double angle = 0;
                         short primeAxis = jointAxis[jtIdx];
-                        MVector axisVec = AxisVec[primeAxis];
-                        MVector vrot1 = axisVec * rot1.asMatrix();
-                        MVector vrot2 = axisVec * rot2.asMatrix();
-                        double angle = vrot1.angle(vrot2);
-                        angle = RAD2DEG(angle);
+                        {
+                            MVector vec = AxisVec[primeAxis];
+                            MVector vrot1 = vec * rot1.asMatrix();
+                            MVector vrot2 = vec * rot2.asMatrix();
+                            double a = vrot1.angle(vrot2);
+                            angle += RAD2DEG(a);
+                        }
+                        {
+                            MVector vec = UpVec[primeAxis];
+                            MVector vrot1 = vec * rot1.asMatrix();
+                            MVector vrot2 = vec * rot2.asMatrix();
+                            double a = vrot1.angle(vrot2);
+                            angle += RAD2DEG(a);
+                        }
 
 #ifdef _DEBUG
                         if (debug)
@@ -533,12 +551,23 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
 
             // TODO: Get current joint's rotation and get angle between that and poseJt.rotation and fallOff dist
 
+            double angle = 0;
             short primeAxis = jointAxis[jtIdx];
-            MVector axisVec = AxisVec[primeAxis];
-            MVector vrot1 = axisVec * currJointRot[jtIdx].asMatrix();
-            MVector vrot2 = axisVec * poseJt.rotation.asMatrix();
-            double angle = vrot1.angle(vrot2);
-            angle = RAD2DEG(angle);
+            {
+                MVector vec = AxisVec[primeAxis];
+                MVector vrot1 = vec * currJointRot[jtIdx].asMatrix();
+                MVector vrot2 = vec * poseJt.rotation.asMatrix();
+                double a = vrot1.angle(vrot2);
+                angle += RAD2DEG(a);
+            }
+            {
+                MVector vec = UpVec[primeAxis];
+                MVector vrot1 = vec * currJointRot[jtIdx].asMatrix();
+                MVector vrot2 = vec * poseJt.rotation.asMatrix();
+                double a = vrot1.angle(vrot2);
+                angle += RAD2DEG(a);
+            }
+
 #ifdef _DEBUG
             if (debug)
             {
