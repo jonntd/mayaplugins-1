@@ -69,6 +69,8 @@ public:
     static MObject          aPoseTargetComponents;
     static MObject          aPoseTargetDelta;
 
+    static MObject          aIncludeTwist;
+
     static MObject          aSkinClusterWeightList;
     static MObject          aSkinClusterWeights;
 

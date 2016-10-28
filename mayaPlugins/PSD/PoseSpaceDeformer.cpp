@@ -3,18 +3,14 @@
 
 #include <iostream>
 
-#ifdef USEMKL
-#include "mkl_types.h"
-#include "mkl_lapack.h"
-#elif USEEIGEN
 #include <Eigen/Dense>
 using namespace Eigen;
-#endif
 
 #include <maya/MGlobal.h>
 #include <maya/MPoint.h>
 #include <maya/MMatrix.h>
 #include <maya/MEulerRotation.h>
+#include <maya/MQuaternion.h>
 #include <maya/MFnEnumAttribute.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnCompoundAttribute.h>
@@ -44,7 +40,6 @@ MObject PoseSpaceDeformer::aJointRot;
 MObject PoseSpaceDeformer::aJointRotX;
 MObject PoseSpaceDeformer::aJointRotY;
 MObject PoseSpaceDeformer::aJointRotZ;
-
 MObject PoseSpaceDeformer::aPose;
 MObject PoseSpaceDeformer::aPoseName;
 MObject PoseSpaceDeformer::aPoseEnvelope;
@@ -60,6 +55,8 @@ MObject PoseSpaceDeformer::aPoseTargetName;
 MObject PoseSpaceDeformer::aPoseTargetEnvelope;
 MObject PoseSpaceDeformer::aPoseTargetComponents;
 MObject PoseSpaceDeformer::aPoseTargetDelta;
+
+MObject PoseSpaceDeformer::aIncludeTwist;
 
 MObject PoseSpaceDeformer::aSkinClusterWeightList;
 MObject PoseSpaceDeformer::aSkinClusterWeights;
@@ -123,12 +120,16 @@ MStatus PoseSpaceDeformer::initialize()
     addAttribute(aDebug);
 #endif
 
+    aIncludeTwist = nAttr.create("includeTwist", "it", MFnNumericData::kBoolean, true);
+    nAttr.setChannelBox(true);
+    addAttribute(aIncludeTwist);
+
     aJointRotX = uAttr.create("jointRotX", "jrx", MFnUnitAttribute::kAngle);
     aJointRotY = uAttr.create("jointRotY", "jry", MFnUnitAttribute::kAngle);
     aJointRotZ = uAttr.create("jointRotZ", "jrz", MFnUnitAttribute::kAngle);
     aJointRot = nAttr.create("jointRot", "jr", aJointRotX, aJointRotY, aJointRotZ);
 
-    aJointAxis = eAttr.create("jointAxis", "ja", AXIS_Y );
+    aJointAxis = eAttr.create("jointAxis", "ja", AXIS_X );
     eAttr.addField( "X", AXIS_X );
     eAttr.addField( "Y", AXIS_Y );
     eAttr.addField( "Z", AXIS_Z );
@@ -182,6 +183,7 @@ MStatus PoseSpaceDeformer::initialize()
     cAttr.addChild(aPoseWeight);
     cAttr.addChild(aPoseJoint);
     cAttr.addChild(aPoseTarget);
+    cAttr.setHidden(true);
     addAttribute(aPose);
 
     aSkinClusterWeights = nAttr.create("skinClusterWeights", "scw", MFnNumericData::kDouble);
@@ -195,10 +197,12 @@ MStatus PoseSpaceDeformer::initialize()
     addAttribute(aSkinClusterWeightList);
 
 
+    attributeAffects(aIncludeTwist, outputGeom);
     attributeAffects(aJoint, outputGeom);
     attributeAffects(aPose, outputGeom);
     attributeAffects(aSkinClusterWeightList, outputGeom);
 
+    attributeAffects(aIncludeTwist, aPoseWeight);
     attributeAffects(aJoint, aPoseWeight);
     attributeAffects(aPoseJoint, aPoseWeight);
 
@@ -214,12 +218,14 @@ MStatus PoseSpaceDeformer::setDependentsDirty(  const MPlug& plugBeingDirtied,
     MDebugPrint(plugBeingDirtied.name());
 #endif
 
-    if (plugBeingDirtied == aPose ||
+    if (plugBeingDirtied == aIncludeTwist ||
+        plugBeingDirtied == aJointAxis ||
+        plugBeingDirtied == aPose ||
         plugBeingDirtied == aPoseJoint ||
         plugBeingDirtied == aPoseJointRot ||
         plugBeingDirtied == aPoseJointRotX ||
         plugBeingDirtied == aPoseJointRotY ||
-        plugBeingDirtied == aPoseJointRotZ ||        
+        plugBeingDirtied == aPoseJointRotZ ||
         plugBeingDirtied == aPoseJointFallOff )
         _posesDirty = true;
 
@@ -246,6 +252,9 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
     handle = block.inputValue(aDebug);
     bool debug = handle.asBool();
 #endif
+
+    handle = block.inputValue(aIncludeTwist);
+    bool includeTwist = handle.asBool();
 
     // Get current joint rotations and axis
     RotationMap currJointRot;
@@ -390,23 +399,38 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                         MEulerRotation rot2 = iter2->second.rotation;
                         float fallOff2 = iter2->second.fallOff;
 
-                        // Angle between poseJoint
-                        double angle = 0;
-                        short primeAxis = jointAxis[jtIdx];
+                        // axis/twist Angle between poseJoints
+                        double angle, axisAngle, twistAngle = 0;
                         {
-                            MVector vec = AxisVec[primeAxis];
-                            MVector vrot1 = vec * rot1.asMatrix();
-                            MVector vrot2 = vec * rot2.asMatrix();
-                            double a = vrot1.angle(vrot2);
-                            angle += RAD2DEG(a);
+                            // Axis angle
+                            short primeAxis = jointAxis[jtIdx];
+                            MVector axis = AxisVec[primeAxis];
+                            MVector axis1 = axis * rot1.asMatrix();
+                            MVector axis2 = axis * rot2.asMatrix();
+                            axisAngle = axis1.angle(axis2);
+
+                            if (includeTwist)
+                            {
+                                // Twist angle
+                                MVector up = UpVec[primeAxis];
+                                MVector up1 = up * rot1.asMatrix();
+                                MVector up2 = up * rot2.asMatrix();
+
+                                // Find rotation to align axis1 to axis2
+                                MVector orthoAxis = axis1 ^ axis2;
+                                orthoAxis.normalize();
+
+                                // Rotate the z axis, get the twist vec
+                                MQuaternion qr( axisAngle, orthoAxis );
+                                MVector twistVec = up1.rotateBy( qr );
+                                twistAngle = twistVec.angle( up2 );
+                            }
+
+                            axisAngle = RAD2DEG(axisAngle);
+                            twistAngle = RAD2DEG(twistAngle);
+                            angle = axisAngle + twistAngle;
                         }
-                        {
-                            MVector vec = UpVec[primeAxis];
-                            MVector vrot1 = vec * rot1.asMatrix();
-                            MVector vrot2 = vec * rot2.asMatrix();
-                            double a = vrot1.angle(vrot2);
-                            angle += RAD2DEG(a);
-                        }
+
 
 #ifdef _DEBUG
                         if (debug)
@@ -425,6 +449,10 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                             msg += MVector2Str(rot2);
                             msg += ", fallOff2: ";
                             msg += fallOff2;
+                            msg += ", axisAngle: ";
+                            msg += axisAngle;
+                            msg += ", twistAngle: ";
+                            msg += twistAngle;
                             msg += ", angle: ";
                             msg += angle;
                             MDebugPrint(msg);
@@ -549,27 +577,42 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
             int jtIdx = iter->first;
             const PoseJoint& poseJt = iter->second;
 
-            // TODO: Get current joint's rotation and get angle between that and poseJt.rotation and fallOff dist
+            // axis/twist Angle between poseJoints
+            double angle, axisAngle, twistAngle = 0;
+            {
+                // Axis angle
+                short primeAxis = jointAxis[jtIdx];
+                MVector axis = AxisVec[primeAxis];
+                MVector axis1 = axis * currJointRot[jtIdx].asMatrix();
+                MVector axis2 = axis * poseJt.rotation.asMatrix();
+                axisAngle = axis1.angle(axis2);
 
-            double angle = 0;
-            short primeAxis = jointAxis[jtIdx];
-            {
-                MVector vec = AxisVec[primeAxis];
-                MVector vrot1 = vec * currJointRot[jtIdx].asMatrix();
-                MVector vrot2 = vec * poseJt.rotation.asMatrix();
-                double a = vrot1.angle(vrot2);
-                angle += RAD2DEG(a);
-            }
-            {
-                MVector vec = UpVec[primeAxis];
-                MVector vrot1 = vec * currJointRot[jtIdx].asMatrix();
-                MVector vrot2 = vec * poseJt.rotation.asMatrix();
-                double a = vrot1.angle(vrot2);
-                angle += RAD2DEG(a);
+                if (includeTwist)
+                {
+                    // Twist angle
+                    MVector up = UpVec[primeAxis];
+                    MVector up1 = up * currJointRot[jtIdx].asMatrix();
+                    MVector up2 = up * poseJt.rotation.asMatrix();
+
+                    // Find rotation to align axis1 to axis2
+                    axis1.normalize();
+                    axis2.normalize();
+                    MVector orthoAxis = axis1 ^ axis2;
+                    orthoAxis.normalize();
+
+                    // Rotate the up axis, get the twist vec
+                    MQuaternion qr( axisAngle, orthoAxis );
+                    MVector twistVec = up1.rotateBy( qr );
+                    twistAngle = twistVec.angle( up2 );
+                }
+
+                axisAngle = RAD2DEG(axisAngle);
+                twistAngle = RAD2DEG(twistAngle);
+                angle = axisAngle + twistAngle;
             }
 
 #ifdef _DEBUG
-            if (debug)
+            if (debug && angle < poseJt.fallOff)
             {
                 MString msg = "Pose2CurrJointWts: pose: ";
                 msg += i;
@@ -582,6 +625,10 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                 msg += MVector2Str(poseJt.rotation);
                 msg += ", fallOff: ";
                 msg += poseJt.fallOff;
+                msg += ", axisAngle: ";
+                msg += axisAngle;
+                msg += ", twistAngle: ";
+                msg += twistAngle;                
                 msg += ", angle: ";
                 msg += angle;
                 msg += ", fallOff: ";
@@ -597,7 +644,7 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                 weight *= jtWeight;
 
 #ifdef _DEBUG                
-                if (debug)
+                if (debug && fabs(weight) > 0.00001)
                 {
                     MString msg = "Pose2CurrJointWts: pose: ";
                     msg += i;
@@ -619,7 +666,7 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
         }
 
 #ifdef _DEBUG
-        if (debug)
+        if (debug && fabs(weight) > 0.00001)
         {
             MString msg = "Pose2CurrJointWts: pose: ";
             msg += i;
@@ -642,7 +689,7 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
             double wt = pose2CurrJointWeights[j] * _pose2PoseWeights[j][i];
 
 #ifdef _DEBUG
-            if (debug)
+            if (debug && fabs(wt) > 0.00001)
             {
                 MString msg = "FinalPoseWts: posei: ";
                 msg += i;
@@ -660,7 +707,7 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
             weight = 0;
 
 #ifdef _DEBUG
-        if (debug)
+        if (debug && fabs(weight) > 0.00001)
         {
             MString msg = "FinalPoseWts: posei: ";
             msg += i;

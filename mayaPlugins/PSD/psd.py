@@ -183,7 +183,7 @@ class PoseSpaceDeformer(object):
 
         poseAttr = self.poseAttr(poseName)
 
-        cmds.setAttr('{}.poseFallOff'.format(poseAttr), fallOff)
+        cmds.setAttr('{}.cmds'.format(poseAttr), fallOff)
 
     def deletePose(self, poseName):
         '''Delete pose'''
@@ -334,3 +334,45 @@ class PoseSpaceDeformer(object):
                 cmds.aliasAttr(envAttr, rm=1)
 
         cmds.removeMultiInstance(targetAttr, b=1)
+
+    def showUI(self):
+
+        from functools import partial
+
+        def setToPose(psd, poseName, v):
+            psd.setToPose(poseName)
+
+        def selectInScene(jt, v):
+            cmds.select(jt)
+
+        cmds.window()
+        cmds.scrollLayout(horizontalScrollBarThickness=16, verticalScrollBarThickness=16)
+        cmds.gridLayout( numberOfColumns=5, cellWidthHeight=(200, 25) )
+        cmds.text(label='Pose')
+        cmds.text(label='Weight')
+        cmds.text(label='Joint')
+        cmds.text(label='Rotation')
+        cmds.text(label='FallOff')
+        cmds.separator()
+        cmds.separator()
+        cmds.separator()
+        cmds.separator()
+        cmds.separator()
+        for poseName in self.poseNames():
+            poseAttr = self.poseAttr(poseName)
+            cmds.text(label=poseName)
+            cmds.attrControlGrp(attribute=poseAttr+'.poseWeight')
+            jts = self.poseJoints(poseName)
+            if len(jts) == 1:
+                cmds.button(label=jts[0], c=partial(selectInScene, jts[0]), ann='Click to select joint')
+                jtIdx = cmds.getAttr(poseAttr+'.poseJoint', mi=1)[0]
+                jtRot = cmds.getAttr('{}.poseJoint[{}].poseJointRot'.format(poseAttr, jtIdx))[0]
+                jtRot = '{:.2f}, {:.2f}, {:.2f}'.format(jtRot[0], jtRot[1], jtRot[2])
+                cmds.button(label=jtRot, c=partial(setToPose, self, poseName), ann='Click to setToPose')
+                cmds.attrControlGrp(attribute='{}.poseJoint[{}].poseJointFallOff'.format(poseAttr, jtIdx))
+            else:
+                cmds.text(label='multiple joints')
+                cmds.text(label='')
+                cmds.text(label='')
+        cmds.showWindow()
+
