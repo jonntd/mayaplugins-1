@@ -55,6 +55,7 @@ public:
 
     static MObject          aPose;
     static MObject          aPoseName;
+    static MObject          aPoseIgnore;
     static MObject          aPoseEnvelope;
     static MObject          aPoseWeight;
     static MObject          aPoseJoint;
@@ -97,9 +98,16 @@ private:
 
     typedef std::map<int, PoseJoint>    PoseJointMap;
 
+    class PoseInfo
+    {
+    public:
+        PoseJointMap jtMap;
+        bool ignore;
+    };
+
     bool                        _posesDirty;
     std::vector<MDoubleArray>   _pose2PoseWeights;
-    std::vector<PoseJointMap>   _poses;
+    std::vector<PoseInfo>       _poses;    
     MDoubleArray                _poseWeights;
 
 };

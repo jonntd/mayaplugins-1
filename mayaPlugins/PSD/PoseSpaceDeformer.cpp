@@ -42,6 +42,7 @@ MObject PoseSpaceDeformer::aJointRotY;
 MObject PoseSpaceDeformer::aJointRotZ;
 MObject PoseSpaceDeformer::aPose;
 MObject PoseSpaceDeformer::aPoseName;
+MObject PoseSpaceDeformer::aPoseIgnore;
 MObject PoseSpaceDeformer::aPoseEnvelope;
 MObject PoseSpaceDeformer::aPoseWeight;
 MObject PoseSpaceDeformer::aPoseJoint;
@@ -146,6 +147,8 @@ MStatus PoseSpaceDeformer::initialize()
 
     aPoseName = tAttr.create("poseName", "pn", MFnData::kString);
 
+    aPoseIgnore = nAttr.create("poseIgnore", "pi", MFnNumericData::kBoolean, false);
+
     aPoseEnvelope = nAttr.create("poseEnvelope", "pe", MFnNumericData::kFloat, 1.f);
     nAttr.setKeyable(true);
 
@@ -179,6 +182,7 @@ MStatus PoseSpaceDeformer::initialize()
     aPose = cAttr.create("pose", "p");
     cAttr.setArray(true);
     cAttr.addChild(aPoseName);
+    cAttr.addChild(aPoseIgnore);
     cAttr.addChild(aPoseEnvelope);
     cAttr.addChild(aPoseWeight);
     cAttr.addChild(aPoseJoint);
@@ -215,12 +219,17 @@ MStatus PoseSpaceDeformer::setDependentsDirty(  const MPlug& plugBeingDirtied,
                                                 MPlugArray& affectedPlugs )
 {
 #ifdef _DEBUG
-    MDebugPrint(plugBeingDirtied.name());
+    MPlug debugPlug(thisMObject(), aDebug);
+    if ( debugPlug.asBool() )
+    {
+        MDebugPrint(plugBeingDirtied.name());
+    }
 #endif
 
     if (plugBeingDirtied == aIncludeTwist ||
         plugBeingDirtied == aJointAxis ||
         plugBeingDirtied == aPose ||
+        plugBeingDirtied == aPoseIgnore ||
         plugBeingDirtied == aPoseJoint ||
         plugBeingDirtied == aPoseJointRot ||
         plugBeingDirtied == aPoseJointRotX ||
@@ -297,6 +306,9 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
         for (unsigned i = 0; i < arrHnd.elementCount(); ++i, arrHnd.next())
         {
             handle = arrHnd.inputValue();
+
+            bool ignore = handle.child(aPoseIgnore).asBool();
+
             handle = handle.child(aPoseJoint);
             MArrayDataHandle jtArrHnd(handle);
 
@@ -330,7 +342,10 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
 #endif
             }
 
-            _poses.push_back(jtMap);
+            PoseInfo pi;
+            pi.jtMap = jtMap;
+            pi.ignore = ignore;
+            _poses.push_back(pi);
         }
 
         // pose-2-pose weights: For each pose, check how far is its poseJointRotations are from other poses
@@ -374,15 +389,16 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
                     MDebugPrint(msg);
                 }
 #endif
+
                 double weightij = 1;
-                double weightji = 1;
-                for (PoseJointMap::const_iterator iter1 = _poses[i].begin(); iter1 != _poses[i].end(); ++iter1)
+                double weightji = 1;                
+                for (PoseJointMap::const_iterator iter1 = _poses[i].jtMap.begin(); iter1 != _poses[i].jtMap.end(); ++iter1)
                 {
                     // If joint in pose[i] matches pose[j], calc distance, else return distance as -1
                     int jtIdx = iter1->first;
-                    PoseJointMap::const_iterator iter2 = _poses[j].find(jtIdx);
+                    PoseJointMap::const_iterator iter2 = _poses[j].jtMap.find(jtIdx);
 
-                    if (iter2 == _poses[j].end())
+                    if (iter2 == _poses[j].jtMap.end() || _poses[i].ignore || _poses[j].ignore)
                     {
                         // Distance cannot be found between poses because of different poseJoints between them
                         weightij = 0;
@@ -572,8 +588,14 @@ MStatus PoseSpaceDeformer::calcPoseWeights( MDataBlock& block )
     for (unsigned i = 0; i < _poses.size(); ++i)
     {
         double weight = 1;
-        for (PoseJointMap::const_iterator iter = _poses[i].begin(); iter != _poses[i].end(); ++iter)
+        for (PoseJointMap::const_iterator iter = _poses[i].jtMap.begin(); iter != _poses[i].jtMap.end(); ++iter)
         {
+            if (_poses[i].ignore)
+            {
+                weight = 0;
+                break;
+            }
+
             int jtIdx = iter->first;
             const PoseJoint& poseJt = iter->second;
 
